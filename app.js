@@ -2,5 +2,9 @@ function greet(name) {
   return `Hello, ${name}!`;
 }
 
-console.log(greet("Git learner"));
+function runCount(times) {
+  return `This demo has run ${times} time(s).`;
+}
 
+console.log(greet("Git learner"));
+console.log(runCount(1));
