@@ -732,55 +732,159 @@ practice-origin
 
 `fetch` 表示从这个远程下载信息；`push` 表示向这个远程上传提交。
 
-### 本地仓库和远程仓库的区别
+### 工作区、本机模拟远程、真实 GitHub 远程的区别
 
-本地仓库是你电脑上的这个目录：
+你说得对，这里要分清楚三个东西，不能只粗略地说“本地仓库”和“远程仓库”。
+
+#### 1. 本地工作仓库：你正在编辑的目录
+
+这是你现在打开、编辑、运行 Git 命令的目录：
 
 ```text
 /home/ps/dcr/claudecode/claudecode_sourcecode1/git-learning-sandbox
 ```
 
-它包含：
+它既是“工作区”，也是一个“本地 Git 仓库”。
 
-- 你正在编辑的文件。
-- 本地 `.git` 历史。
-- 本地分支，比如 `main`。
-- 还没有上传的本地提交。
-
-远程仓库是另一个位置上的 Git 仓库。本课里现在有两个远程：
+它里面有两类东西：
 
 ```text
-practice-origin = 本机模拟远程
-origin = GitHub 真实远程
+普通文件：
+README.md
+GIT_LESSON_CN.md
+notes.md
+app.js
+.gitignore
 ```
 
-可以这样理解：
+以及隐藏的 Git 数据目录：
 
 ```text
-本地仓库 local repository
+.git/
+```
+
+`.git/` 里面保存本地提交历史、本地分支、暂存区、远程配置等信息。
+
+所以当你执行：
+
+```bash
+git add notes.md
+git commit -m "..."
+```
+
+这些操作首先都发生在这个本地工作仓库里。
+
+`git commit` 不会自动上传到 GitHub，也不会自动上传到本机模拟远程。
+
+#### 2. 本机模拟远程：practice-origin
+
+这是我们为了学习 `push` / `pull` 在本机创建的模拟远程仓库：
+
+```text
+/home/ps/dcr/claudecode/claudecode_sourcecode1/git-learning-remote.git
+```
+
+它的远程名字是：
+
+```text
+practice-origin
+```
+
+它也是一个 Git 仓库，但它不是你日常编辑文件的地方。它通常是一个 bare repository，
+主要用来接收 `push`、提供 `fetch` / `pull`。
+
+可以把它理解成“本机上的假 GitHub”：
+
+```text
+git-learning-sandbox
   |
-  | git push
+  | git push practice-origin main
   v
-远程仓库 remote repository
+git-learning-remote.git
 ```
 
 反过来：
 
 ```text
-远程仓库 remote repository
+git-learning-remote.git
   |
-  | git fetch / git pull
+  | git fetch practice-origin
+  | git pull practice-origin main
   v
-本地仓库 local repository
+git-learning-sandbox
 ```
 
-`git commit` 只影响本地仓库。
+这就是为什么之前你执行 `git push` 后，GitHub 网页上看不到变化：因为当时推送目标是
+`practice-origin`，也就是本机模拟远程，不是 GitHub。
 
-`git push` 才会把本地提交上传到远程仓库。
+#### 3. 真实 GitHub 远程：origin
 
-`git fetch` 会把远程信息下载到本地，但不会自动改你的工作文件。
+这是你在 GitHub 网站上创建的真实网络仓库：
 
-`git pull` 会下载远程信息，并尝试合并到当前分支。
+```text
+https://github.com/haichengmai20-hub/git-learning-sandbox.git
+```
+
+它的远程名字是：
+
+```text
+origin
+```
+
+当你执行：
+
+```bash
+git push origin main:practice/local-git-learning
+```
+
+意思是：
+
+```text
+把本地工作仓库 git-learning-sandbox 里的 main 分支，
+推送到 GitHub 远程 origin，
+并在 GitHub 上创建/更新 practice/local-git-learning 分支。
+```
+
+#### 三者关系图
+
+```text
+你编辑文件、git add、git commit 的地方
+
+/home/ps/.../git-learning-sandbox
+本地工作仓库
+  |
+  | git push practice-origin main
+  v
+/home/ps/.../git-learning-remote.git
+本机模拟远程
+```
+
+```text
+你编辑文件、git add、git commit 的地方
+
+/home/ps/.../git-learning-sandbox
+本地工作仓库
+  |
+  | git push origin main:practice/local-git-learning
+  v
+https://github.com/haichengmai20-hub/git-learning-sandbox.git
+真实 GitHub 远程
+```
+
+核心区别：
+
+- `git-learning-sandbox`：你编辑文件、执行 `git add`、执行 `git commit` 的地方。
+- `practice-origin`：本机上的模拟远程，只是用来练习远程操作。
+- `origin`：真实 GitHub 远程，push 成功后可以在 GitHub 网页看到。
+
+命令影响范围：
+
+- `git add`：只影响本地工作仓库的暂存区。
+- `git commit`：只影响本地工作仓库的提交历史。
+- `git push practice-origin main`：把本地提交上传到本机模拟远程。
+- `git push origin ...`：把本地提交上传到真实 GitHub 远程。
+- `git fetch`：从某个远程下载信息到本地 `.git/`，但不直接改工作区文件。
+- `git pull`：从某个远程下载信息，并尝试合并到当前本地分支。
 
 ### 为什么不直接推到 GitHub main
 
@@ -852,3 +956,426 @@ main:practice/local-git-learning
 设置上游跟踪关系。以后这个分支继续 push 时可以少写远程和分支名。
 
 执行完把终端输出发给我。我会继续记录，并解释 GitHub 网页上应该去哪里看这个新分支。
+
+你的真实终端输出：
+
+```text
+git push -u origin main:practice/local-git-learning
+Missing or invalid credentials.
+Error: connect ECONNREFUSED /run/user/1000/vscode-git-78abbb6bdd.sock
+    at PipeConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '/run/user/1000/vscode-git-78abbb6bdd.sock'
+}
+Missing or invalid credentials.
+Error: connect ECONNREFUSED /run/user/1000/vscode-git-78abbb6bdd.sock
+    at PipeConnectWrap.afterConnect [as oncomplete] (node:net:1637:16) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '/run/user/1000/vscode-git-78abbb6bdd.sock'
+}
+remote: No anonymous write access.
+fatal: Authentication failed for 'https://github.com/haichengmai20-hub/git-learning-sandbox.git/'
+```
+
+解释：
+
+这次失败不是因为分支名写错，也不是因为仓库地址写错，而是 GitHub 身份认证失败。
+
+```text
+Missing or invalid credentials.
+```
+
+表示 Git 没有拿到可用的 GitHub 登录凭据。
+
+```text
+connect ECONNREFUSED /run/user/1000/vscode-git-78abbb6bdd.sock
+```
+
+表示 Git 尝试通过 VS Code 的 Git credential helper 获取凭据，但那个本地 socket
+没有连上。可以理解为：Git 想问 VS Code“这个 GitHub 用户是谁、密码/token 是什么”，
+但 VS Code 那边没有成功回应。
+
+```text
+remote: No anonymous write access.
+```
+
+表示 GitHub 不允许匿名用户向仓库写入。即使这个仓库是 public，别人也只能读，不能匿名 push。
+
+```text
+fatal: Authentication failed
+```
+
+最终结果：认证失败，所以这次 push 没有成功。
+
+### 第 7 组：先修复 GitHub 认证
+
+推荐先用 VS Code 的 GitHub 登录能力修复，因为你已经在 VS Code 里操作。
+
+做法：
+
+1. 在 VS Code 左下角或 Accounts 菜单里确认 GitHub 已登录。
+2. 如果已登录但仍失败，先 Sign out，再 Sign in with GitHub。
+3. 登录完成后，回到这个终端重新运行：
+
+```bash
+git push -u origin main:practice/local-git-learning
+```
+
+如果 VS Code 认证仍然失败，使用 Personal Access Token：
+
+1. 打开 GitHub 网页。
+2. 创建一个 classic token，至少需要 `repo` 权限。
+3. 再次运行 push。
+4. 当终端要求 username 时，输入 GitHub 用户名：
+
+```text
+haichengmai20-hub
+```
+
+5. 当终端要求 password 时，不输入 GitHub 密码，而是粘贴 token。
+
+注意：不要把 token 发给我，也不要写进任何文件。
+
+### 为什么 VS Code 里看到 GitHub 账号，push 还是失败
+
+你后来确认 VS Code 的 GitHub 面板已经能看到 GitHub 内容，但再次 push 仍然失败：
+
+```text
+Missing or invalid credentials.
+Error: connect ECONNREFUSED /run/user/1000/vscode-git-78abbb6bdd.sock
+remote: No anonymous write access.
+fatal: Authentication failed
+```
+
+原因是：我们现在通过 Remote SSH 在服务器上工作。
+
+这里有两个环境：
+
+```text
+Windows 本地 VS Code 界面
+```
+
+和：
+
+```text
+SSH 服务器上的终端与 Git
+```
+
+VS Code 的 GitHub 面板登录成功，说明 VS Code 扩展知道你的 GitHub 账号。
+
+但 `git push` 是服务器上的 `git` 命令在执行。它需要服务器上的 Git 能拿到 GitHub 凭据。
+
+这次错误里的：
+
+```text
+/run/user/1000/vscode-git-78abbb6bdd.sock
+```
+
+是 VS Code 用来把凭据传给远程 Git 的本地 socket。`ECONNREFUSED` 表示这个通道没有连上，
+所以服务器上的 Git 没拿到用户名和 token。
+
+结论：
+
+```text
+VS Code GitHub 面板登录成功 != SSH 服务器上的 git push 已经认证成功
+```
+
+更稳定的做法有两种：
+
+#### 方法 A：重启 VS Code Remote SSH 凭据通道
+
+1. 在 VS Code 里执行 `Developer: Reload Window`。
+2. 重新连接 Remote SSH。
+3. 确认 GitHub 账号仍然登录。
+4. 再运行：
+
+```bash
+git push -u origin main:practice/local-git-learning
+```
+
+#### 方法 B：在服务器终端用 GitHub token 认证
+
+运行下面这个命令，让 Git 不走 VS Code 的 askpass socket，改为在终端里询问用户名和 token：
+
+```bash
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS git push -u origin main:practice/local-git-learning
+```
+
+如果终端询问：
+
+```text
+Username for 'https://github.com':
+```
+
+输入：
+
+```text
+haichengmai20-hub
+```
+
+如果终端询问：
+
+```text
+Password for 'https://github.com':
+```
+
+不要输入 GitHub 密码，粘贴 GitHub Personal Access Token。
+
+注意：token 属于密钥，不要发给别人，不要写进 lesson，不要提交到 Git。
+
+### 第 8 组：创建 GitHub Personal Access Token
+
+Personal Access Token，简称 PAT，可以理解成：
+
+```text
+给命令行 git 使用的 GitHub 登录凭据
+```
+
+现在 GitHub 不允许在终端里用 GitHub 账号密码完成 `git push`。所以当终端问：
+
+```text
+Password for 'https://github.com':
+```
+
+这里要输入的不是 GitHub 密码，而是 token。
+
+推荐创建 fine-grained token，因为它可以只授权给一个仓库，权限范围更小。
+
+创建路径：
+
+```text
+GitHub 网页
+右上角头像
+Settings
+Developer settings
+Personal access tokens
+Fine-grained tokens
+Generate new token
+```
+
+本课建议填写：
+
+```text
+Token name: git-learning-sandbox
+Expiration: 7 days 或 30 days
+Resource owner: haichengmai20-hub
+Repository access: Only select repositories
+Selected repository: git-learning-sandbox
+```
+
+Repository permissions 里设置：
+
+```text
+Contents: Read and write
+Metadata: Read-only
+```
+
+解释：
+
+- `Contents: Read and write`：允许命令行 Git 读取和写入仓库内容，也就是可以 push。
+- `Metadata: Read-only`：GitHub 对仓库基本信息的读取权限，通常默认需要。
+
+创建完成后，GitHub 只会显示一次 token。必须立刻复制。
+
+安全规则：
+
+- 不要把 token 发给任何人。
+- 不要把 token 粘贴进聊天窗口。
+- 不要把 token 写进 `GIT_LESSON_CN.md`。
+- 不要把 token 提交到 Git。
+- 如果 token 泄漏，立刻在 GitHub 删除并重新创建。
+
+创建 token 后，回到服务器终端执行：
+
+```bash
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS git push -u origin main:practice/local-git-learning
+```
+
+当终端询问用户名：
+
+```text
+Username for 'https://github.com':
+```
+
+输入：
+
+```text
+haichengmai20-hub
+```
+
+当终端询问密码：
+
+```text
+Password for 'https://github.com':
+```
+
+粘贴刚刚复制的 token。终端可能不会显示粘贴内容，这是正常的。粘贴后按回车。
+
+如果 push 成功，下一步要在 GitHub 网页左上角的分支下拉框里切换到：
+
+```text
+practice/local-git-learning
+```
+
+然后检查本地练习文件是否已经出现在 GitHub 上。
+
+### 第 9 组：GitHub 网页确认 push 成功
+
+你已经在 GitHub 网页上看到了推送结果：
+
+```text
+Repository: git-learning-sandbox
+Branch: practice/local-git-learning
+File: notes.md
+Latest commit: 45de9eb Practice Git add commit push flow
+```
+
+这说明本地提交已经成功上传到真实 GitHub 远程 `origin`。
+
+你截图里能看到：
+![GitHub 上成功看到 notes.md](assets/github-notes-success.png)
+- 左上角分支不是 `main`，而是 `practice/local-g...`，对应完整分支名 `practice/local-git-learning`。
+- 文件列表里出现了本地练习仓库的文件：`.gitignore`、`GIT_LESSON_CN.md`、`README.md`、`app.js`、`notes.md`。
+- 打开的 `notes.md` 里能看到本轮新增内容：
+
+```text
+Third practice: I will record every Git command output.
+```
+
+这就是我们想要验证的结果：
+
+```text
+本地工作仓库 git-learning-sandbox
+  |
+  | git push -u origin main:practice/local-git-learning
+  v
+GitHub 真实远程 origin 上的新分支 practice/local-git-learning
+```
+
+## 5. 从第 4 组之后继续：现在推到真实 GitHub 分支
+
+前面第 4 组已经完成了这件事：
+
+```text
+修改 notes.md -> git add notes.md -> git commit
+```
+
+当时的提交是：
+
+```text
+45de9eb Practice Git add commit push flow
+```
+
+后面我们已经完成了真实 GitHub 远程接入，并且把本地 `main` 推到了 GitHub 的新分支：
+
+```text
+practice/local-git-learning
+```
+
+现在本地分支关系是：
+
+```text
+main...origin/practice/local-git-learning
+```
+
+这表示：
+
+- 本地当前分支还是 `main`。
+- 它现在跟踪的远程分支是 GitHub 上的 `origin/practice/local-git-learning`。
+- 以后在这个本地 `main` 上继续提交后，直接运行 `git push`，默认就会推到这个 GitHub 分支。
+
+所以从这里开始，我们不再把重点放在本机模拟远程 `practice-origin`，而是继续学习真实 GitHub 分支。
+
+### 第 10 组：提交 lesson 和截图
+
+当前还有两个变化需要提交：
+
+```text
+ M GIT_LESSON_CN.md
+?? assets/github-notes-success.png
+```
+
+含义：
+
+- `GIT_LESSON_CN.md`：我们继续补充了 lesson。
+- `assets/github-notes-success.png`：GitHub 网页成功截图，还没有被 Git 跟踪。
+
+要执行的命令：
+
+```bash
+git status --short --branch
+git add GIT_LESSON_CN.md assets/github-notes-success.png
+git status --short
+git diff --cached --stat
+git commit -m "Add GitHub success screenshot to lesson"
+git status --short --branch
+```
+
+每条命令的目的：
+
+- `git status --short --branch`：确认当前分支、远程跟踪关系、文件变化。
+- `git add GIT_LESSON_CN.md assets/github-notes-success.png`：把 lesson 和截图放进暂存区。
+- `git status --short`：确认这两个文件已经进入暂存区。
+- `git diff --cached --stat`：查看准备提交的内容摘要。
+- `git commit -m "Add GitHub success screenshot to lesson"`：创建本地提交。
+- `git status --short --branch`：确认本地是否领先 GitHub 分支。
+
+提交后通常会看到：
+
+```text
+## main...origin/practice/local-git-learning [ahead 1]
+```
+
+`[ahead 1]` 表示：本地多了 1 个提交，还没有推到 GitHub。
+
+执行完这一组，把终端输出发给我，我会继续记录。
+
+### 第 11 组：推送到真实 GitHub 分支
+
+第 10 组 commit 成功后，再执行：
+
+```bash
+git push
+git status --short --branch
+git log --oneline --graph --decorate --all --max-count=8
+```
+
+为什么现在可以只写 `git push`：
+
+前面执行过：
+
+```bash
+git push -u origin main:practice/local-git-learning
+```
+
+其中 `-u` 已经设置了上游跟踪关系，所以 Git 知道：
+
+```text
+本地 main -> GitHub origin/practice/local-git-learning
+```
+
+因此后续 push 不需要每次写完整的：
+
+```bash
+git push origin main:practice/local-git-learning
+```
+
+直接写：
+
+```bash
+git push
+```
+
+即可。
+
+推送成功后，`git status --short --branch` 应该回到：
+
+```text
+## main...origin/practice/local-git-learning
+```
+
+如果没有 `[ahead 1]`，说明本地和 GitHub 分支已经同步。
