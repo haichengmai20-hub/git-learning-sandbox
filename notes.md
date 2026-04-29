@@ -8,3 +8,4 @@
 - Simulated a teammate pushing a remote change.
 
 ### 我现在做了一个小小改动
+- Third practice: I will record every Git command output.
