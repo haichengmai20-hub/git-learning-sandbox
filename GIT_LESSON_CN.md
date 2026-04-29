@@ -589,6 +589,42 @@ git add notes.md
 - `practice-origin/main` 在 `06dd1d9`：远程 `main` 还停在旧提交。
 - 所以本地领先远程 1 个提交，对应状态里的 `[ahead 1]`。
 
+这里第一次出现了 `HEAD`，需要单独理解一次。
+
+`HEAD` 可以理解成：
+
+```text
+我当前所在的位置
+```
+
+更准确地说，`HEAD` 是 Git 用来表示“当前检出的提交或当前分支”的指针。
+
+当你看到：
+
+```text
+HEAD -> main
+```
+
+意思是：
+
+```text
+我当前站在 main 分支上，main 分支当前指向这个提交。
+```
+
+后面你还会看到：
+
+```text
+0494058 (HEAD -> main, origin/practice/local-git-learning)
+```
+
+这表示三个东西都指向同一个提交 `0494058`：
+
+- `HEAD`：你当前所在位置。
+- `main`：本地 `main` 分支。
+- `origin/practice/local-git-learning`：GitHub 远程分支在本地记录的位置。
+
+这种状态说明本地当前分支和 GitHub 分支已经同步。
+
 ### 终端提示符解释
 
 你看到的这一段：
@@ -1334,6 +1370,92 @@ git status --short --branch
 
 执行完这一组，把终端输出发给我，我会继续记录。
 
+你的真实终端输出：
+
+```text
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git status --short --branch
+## main...origin/practice/local-git-learning
+ M GIT_LESSON_CN.md
+?? assets/
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git add GIT_LESSON_CN.md assets/github-notes-success.png
+git status --short
+M  GIT_LESSON_CN.md
+A  assets/github-notes-success.png
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git diff --cached --stat
+GIT_LESSON_CN.md                | 569 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-----
+ assets/github-notes-success.png | Bin 0 -> 442671 bytes
+ 2 files changed, 548 insertions(+), 21 deletions(-)
+
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git commit -m "Add GitHub success screenshot to lesson"
+git status --short --branch
+[main 0494058] Add GitHub success screenshot to lesson
+ 2 files changed, 548 insertions(+), 21 deletions(-)
+ create mode 100644 assets/github-notes-success.png
+## main...origin/practice/local-git-learning [ahead 1]
+```
+
+解释：
+
+```text
+?? assets/
+```
+
+表示 `assets/` 是一个未跟踪目录。Git 看到目录里有新文件，但这个文件还没有被 `git add`。
+
+执行：
+
+```bash
+git add GIT_LESSON_CN.md assets/github-notes-success.png
+```
+
+之后状态变成：
+
+```text
+M  GIT_LESSON_CN.md
+A  assets/github-notes-success.png
+```
+
+含义：
+
+- `M  GIT_LESSON_CN.md`：lesson 文件已经暂存，准备提交。
+- `A  assets/github-notes-success.png`：这是一个新文件，已经暂存，准备作为新增文件提交。
+
+```text
+assets/github-notes-success.png | Bin 0 -> 442671 bytes
+```
+
+说明这是一个二进制文件。Git 不像文本 diff 那样展示图片每一行改了什么，只显示大小变化：
+
+```text
+0 -> 442671 bytes
+```
+
+表示从没有这个文件，变成新增了一个 442671 字节的 PNG 图片。
+
+```text
+[main 0494058] Add GitHub success screenshot to lesson
+```
+
+表示创建了新的本地提交：
+
+- 分支：`main`
+- 提交哈希：`0494058`
+- 提交信息：`Add GitHub success screenshot to lesson`
+
+```text
+create mode 100644 assets/github-notes-success.png
+```
+
+表示这次提交新增了图片文件。
+
+```text
+## main...origin/practice/local-git-learning [ahead 1]
+```
+
+表示本地 `main` 比 GitHub 上的 `origin/practice/local-git-learning` 多 1 个提交。
+
+这正是下一步要 `git push` 的原因：把本地新提交 `0494058` 上传到 GitHub。
+
 ### 第 11 组：推送到真实 GitHub 分支
 
 第 10 组 commit 成功后，再执行：
@@ -1379,3 +1501,238 @@ git push
 ```
 
 如果没有 `[ahead 1]`，说明本地和 GitHub 分支已经同步。
+
+你的真实终端输出：
+
+```text
+(vllm-env) ➜  git-learning-sandbox git:(main) git push
+fatal: The upstream branch of your current branch does not match
+the name of your current branch.  To push to the upstream branch
+on the remote, use
+
+    git push origin HEAD:practice/local-git-learning
+
+To push to the branch of the same name on the remote, use
+
+    git push origin HEAD
+
+To choose either option permanently, see push.default in 'git help config'.
+```
+
+解释：
+
+这次不是认证问题，而是分支名字不一致导致 Git 不确定你想怎么 push。
+
+当前关系是：
+
+```text
+本地分支：main
+远程上游分支：origin/practice/local-git-learning
+```
+
+也就是说，本地分支名叫：
+
+```text
+main
+```
+
+但它对应的 GitHub 分支名叫：
+
+```text
+practice/local-git-learning
+```
+
+这两个名字不同。Git 默认策略比较谨慎，所以直接 `git push` 时提示你明确选择。
+
+Git 给了两个选择。
+
+选择 1：
+
+```bash
+git push origin HEAD:practice/local-git-learning
+```
+
+意思是：
+
+```text
+把当前本地分支 HEAD 指向的提交，推送到 GitHub 的 practice/local-git-learning 分支。
+```
+
+这是我们现在想要的。
+
+选择 2：
+
+```bash
+git push origin HEAD
+```
+
+意思是：
+
+```text
+把当前本地分支推送到远程同名分支。
+```
+
+当前本地分支叫 `main`，所以这个命令会尝试推到 GitHub 的 `main`。这不是我们现在想做的，
+因为 GitHub 的 `main` 有自己的 Initial commit。
+
+所以本轮应该执行：
+
+```bash
+git push origin HEAD:practice/local-git-learning
+git status --short --branch
+git log --oneline --graph --decorate --all --max-count=8
+```
+
+执行完把输出发给我。
+
+直接执行上面的 `git push origin HEAD:practice/local-git-learning` 时，又遇到了认证失败：
+
+```text
+Missing or invalid credentials.
+Error: connect ECONNREFUSED /run/user/1000/vscode-git-78abbb6bdd.sock
+remote: No anonymous write access.
+fatal: Authentication failed
+```
+
+原因还是一样：普通 `git push` 会尝试走 VS Code 的 Git credential socket，但这个 socket 在
+Remote SSH 环境里没有正常提供凭据。
+
+于是改用下面的命令，临时取消 VS Code askpass 相关环境变量，让 Git 在终端里直接询问用户名和 token：
+
+```bash
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS git push origin HEAD:practice/local-git-learning
+```
+
+你的真实终端输出：
+
+```text
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS git push origin HEAD:practice/local-git-learning
+
+Username for 'https://github.com': haichengmai20-hub
+Password for 'https://haichengmai20-hub@github.com':
+Enumerating objects: 7, done.
+Counting objects: 100% (7/7), done.
+Delta compression using up to 256 threads
+Compressing objects: 100% (5/5), done.
+Writing objects: 100% (5/5), 424.35 KiB | 28.29 MiB/s, done.
+Total 5 (delta 2), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/haichengmai20-hub/git-learning-sandbox.git
+   74f23b7..0494058  HEAD -> practice/local-git-learning
+```
+
+解释：
+
+```text
+Username for 'https://github.com': haichengmai20-hub
+Password for 'https://haichengmai20-hub@github.com':
+```
+
+这一步完成了 HTTPS push 的身份认证。这里的 password 实际输入的是 GitHub Personal Access Token，
+不是 GitHub 登录密码。
+
+```text
+Enumerating objects
+Counting objects
+Compressing objects
+Writing objects
+```
+
+这些是 Git 在准备上传数据：
+
+- `Enumerating objects`：找出这次需要上传哪些 Git 对象。
+- `Counting objects`：统计对象数量。
+- `Compressing objects`：压缩这些对象，减少网络传输大小。
+- `Writing objects`：把压缩后的对象上传到 GitHub。
+
+```text
+424.35 KiB
+```
+
+这次上传比较大，是因为包含了截图：
+
+```text
+assets/github-notes-success.png
+```
+
+```text
+74f23b7..0494058  HEAD -> practice/local-git-learning
+```
+
+这是最关键的一行。它表示 GitHub 上的 `practice/local-git-learning` 分支从旧提交：
+
+```text
+74f23b7
+```
+
+更新到了新提交：
+
+```text
+0494058
+```
+
+也就是这次 push 成功了。
+
+随后你检查了状态：
+
+```text
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git status --short --branch
+## main...origin/practice/local-git-learning
+ M GIT_LESSON_CN.md
+```
+
+解释：
+
+```text
+## main...origin/practice/local-git-learning
+```
+
+没有 `[ahead 1]`，说明本地 `main` 和 GitHub 分支 `origin/practice/local-git-learning`
+已经同步到了同一个提交。
+
+```text
+ M GIT_LESSON_CN.md
+```
+
+说明我后面为了记录第 10 组和第 11 组，又继续修改了 lesson。这些新记录还没有提交。
+
+你又查看了提交历史：
+
+```text
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git log --oneline --graph --decorate --all --max-count=8
+* 0494058 (HEAD -> main, origin/practice/local-git-learning) Add GitHub success screenshot to lesson
+* 74f23b7 Document GitHub remote learning flow
+* 45de9eb Practice Git add commit push flow
+* 06dd1d9 (practice-origin/main) Add my first Git learning note
+* 7e92626 Add Chinese Git lesson notes
+* 3f263df Simulate teammate note update
+* 340bfac (feature/add-run-count) Add run count demo
+* 3eddcd6 Initial git learning project
+```
+
+这里最重要的是：
+
+```text
+0494058 (HEAD -> main, origin/practice/local-git-learning)
+```
+
+它表示本地 `main` 和 GitHub 远程分支 `origin/practice/local-git-learning` 已经指向同一个最新提交。
+
+### 第 12 组：提交本次 push 记录
+
+现在只剩这份 lesson 的最新记录还没有提交：
+
+```text
+ M GIT_LESSON_CN.md
+```
+
+下一步可以把这次 push 成功记录也提交并推送：
+
+```bash
+git add GIT_LESSON_CN.md
+git commit -m "Record GitHub push success"
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS git push origin HEAD:practice/local-git-learning
+git status --short --branch
+```
+
+执行完把输出发给我。
