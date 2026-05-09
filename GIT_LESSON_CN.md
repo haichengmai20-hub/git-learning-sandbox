@@ -1273,7 +1273,9 @@ Latest commit: 45de9eb Practice Git add commit push flow
 这说明本地提交已经成功上传到真实 GitHub 远程 `origin`。
 
 你截图里能看到：
-![GitHub 上成功看到 notes.md](assets/github-notes-success.png)
+
+![GitHub 上成功看到 notes.md](assets/github-notes-success_1.png)
+
 - 左上角分支不是 `main`，而是 `practice/local-g...`，对应完整分支名 `practice/local-git-learning`。
 - 文件列表里出现了本地练习仓库的文件：`.gitignore`、`GIT_LESSON_CN.md`、`README.md`、`app.js`、`notes.md`。
 - 打开的 `notes.md` 里能看到本轮新增内容：
@@ -1736,3 +1738,229 @@ git status --short --branch
 ```
 
 执行完把输出发给我。
+
+你的真实终端输出：
+
+```text
+(vllm-env) ➜  git-learning-sandbox git:(main) ✗ git add GIT_LESSON_CN.md
+git commit -m "Record GitHub push success"
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS git push origin HEAD:practice/local-git-learning
+[main 836acf7] Record GitHub push success
+ 1 file changed, 357 insertions(+)
+Username for 'https://github.com': haichengmai20-hub
+Password for 'https://haichengmai20-hub@github.com':
+Enumerating objects: 5, done.
+Counting objects: 100% (5/5), done.
+Delta compression using up to 256 threads
+Compressing objects: 100% (3/3), done.
+Writing objects: 100% (3/3), 3.24 KiB | 3.24 MiB/s, done.
+Total 3 (delta 2), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (2/2), completed with 2 local objects.
+To https://github.com/haichengmai20-hub/git-learning-sandbox.git
+   0494058..836acf7  HEAD -> practice/local-git-learning
+(vllm-env) ➜  git-learning-sandbox git:(main) git status --short --branch
+## main...origin/practice/local-git-learning
+```
+
+解释：
+
+```text
+[main 836acf7] Record GitHub push success
+```
+
+表示创建了一次新的本地提交：
+
+- 分支：`main`
+- 提交哈希：`836acf7`
+- 提交信息：`Record GitHub push success`
+
+```text
+1 file changed, 357 insertions(+)
+```
+
+表示这次提交只修改了 1 个文件，也就是 `GIT_LESSON_CN.md`，新增了 357 行学习记录。
+
+```text
+0494058..836acf7  HEAD -> practice/local-git-learning
+```
+
+表示 GitHub 上的 `practice/local-git-learning` 分支从旧提交：
+
+```text
+0494058
+```
+
+更新到了新提交：
+
+```text
+836acf7
+```
+
+这说明这次 push 成功。
+
+这次成功后，GitHub 网页上也能看到更新后的 `GIT_LESSON_CN.md`：
+
+![GitHub 上成功看到 GIT_LESSON_CN.md](assets/github-notes-success_2.png)
+
+最后状态是：
+
+```text
+## main...origin/practice/local-git-learning
+```
+
+没有 `[ahead 1]`，也没有文件修改列表，说明：
+
+```text
+本地 main 和 GitHub 分支 origin/practice/local-git-learning 已经同步，
+并且工作区是干净的。
+```
+
+注意：我现在为了记录第 12 组，又修改了这份 lesson。所以在我写完这一段之后，
+`git status` 会再次显示 `GIT_LESSON_CN.md` 被修改。这是学习记录继续增长造成的正常现象。
+
+### 第 13 组：继续学什么（先只学本地，不管 push）
+
+你现在已经掌握了最基本链路：
+
+```text
+改文件 -> git add -> git commit -> git push
+```
+
+后面最值得学的，是下面 4 个“日常高频能力”。
+
+---
+
+#### A. 看差异（改了什么、提交了什么）
+
+最常用命令：
+
+```bash
+git status --short --branch
+git diff
+git diff --staged
+git log --oneline --graph --decorate --max-count=10
+```
+
+理解：
+
+- `git diff`：看“工作区 vs 暂存区”。
+- `git diff --staged`：看“暂存区 vs 最近一次提交（HEAD）”。
+- `git log ...`：看提交历史结构。
+
+只要先把这三种视角看清楚，很多 Git 问题都会简单很多。
+
+---
+
+#### B. 撤销与回退（不丢内容版）
+
+你会频繁用到这三条：
+
+```bash
+# 1) 只取消暂存，不改文件内容
+git restore --staged <file>
+
+# 2) 丢弃工作区修改（危险：会丢当前未提交改动）
+git restore <file>
+
+# 3) 撤销最近一次提交，但保留文件修改（常用）
+git reset --soft HEAD~1
+```
+
+建议记忆方式：
+
+- `restore --staged`：撤销 add。
+- `restore`：撤销工作区改动。
+- `reset --soft HEAD~1`：撤销 commit，但把内容留在暂存区。
+
+---
+
+#### C. stash（临时收纳现场）
+
+适用场景：改到一半，要切分支处理别的事。
+
+```bash
+git stash push -m "wip: local practice"
+git stash list
+git stash pop
+```
+
+解释：
+
+- `stash push`：把当前改动打包收起来。
+- `stash list`：看收纳列表。
+- `stash pop`：恢复最新一份 stash，并从列表删除。
+
+---
+
+#### D. reflog（后悔药）
+
+当你 reset/checkout 之后“找不到之前的提交”，先看 reflog：
+
+```bash
+git reflog --date=local --max-count=20
+```
+
+如果看到想回去的提交哈希，例如 `<old>`：
+
+```bash
+git reset --hard <old>
+```
+
+说明：`reset --hard` 会覆盖当前工作区，只在你确认要回滚时使用。
+
+---
+
+### 第 14 组：本地练习任务（不需要 push）
+
+下面这一组你可以直接在当前仓库练，全部是本地操作。
+
+#### 任务 1：练 diff 视角
+
+```bash
+echo "local diff practice" >> notes.md
+git status --short --branch
+git diff
+git add notes.md
+git diff --staged
+```
+
+目标：看懂“工作区 diff”和“暂存区 diff”的区别。
+
+#### 任务 2：练撤销 add
+
+```bash
+git restore --staged notes.md
+git status --short --branch
+```
+
+目标：确认文件还改着，但不在暂存区。
+
+#### 任务 3：练 stash
+
+```bash
+git stash push -m "practice: stash notes"
+git status --short --branch
+git stash list
+git stash pop
+git status --short --branch
+```
+
+目标：确认改动可以临时收起并恢复。
+
+#### 任务 4：练“撤销最近提交但保留内容”
+
+```bash
+git add notes.md
+git commit -m "Practice local undo"
+git log --oneline --max-count=3
+git reset --soft HEAD~1
+git status --short --branch
+```
+
+目标：提交被撤销，但修改还在暂存区。
+
+完成这四个任务后，你会进入“会用 Git”的阶段。后面再学：
+
+- 分支整理（rebase/cherry-pick）
+- 冲突处理
+- 提交历史清理（interactive rebase）
