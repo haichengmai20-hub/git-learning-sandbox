@@ -1,5 +1,119 @@
 # Git 互动练习课：从修改文件到 push
 
+## 文档结构
+
+```
+命令速查表（开头，6 个场景 + 状态标记速查）
+├── 场景 1：日常提交流程
+├── 场景 2：查看与理解
+├── 场景 3：撤销与回退
+├── 场景 4：临时保存现场
+├── 场景 5：后悔药
+├── 场景 6：GitHub 认证与远程
+└── 状态标记速查
+
+背景 & 基础概念（第 0-3 节）
+
+阶段一：基础提交流程（改文件 → add → commit → push）
+├── 确认环境与状态
+├── 修改文件并查看 diff
+├── git add — 暂存文件
+├── git commit — 创建本地提交
+├── git push — 推送到 GitHub
+└── push 到 GitHub 新分支
+
+阶段二：GitHub 远程实战（认证、推送、远程分支）
+├── 修复 push 认证失败
+├── 创建 Fine-grained PAT 并成功 push
+├── 理解远程仓库的三个层次
+├── 模拟队友 push — fetch + merge
+├── 分支名不一致时的 push
+└── 提交并推送学习记录
+
+阶段三：日常高频操作（diff、撤销、暂存、回退）
+├── 概览
+├── 练习任务总览
+├── 重新连接 GitHub
+├── 练习：git diff vs git diff --staged
+├── 练习：git restore --staged 撤销 add
+├── 练习：git stash 临时保存现场
+└── 练习：git reset --soft 撤销 commit
+```
+
+## 命令速查表
+
+### 场景 1：日常提交流程
+
+```bash
+git status --short --branch    # 查看当前状态和分支
+git diff                       # 看工作区改了什么（还没 add 的）
+git diff --staged              # 看暂存区有什么（add 了还没 commit 的）
+git add <file>                 # 暂存文件
+git commit -m "消息"           # 提交
+git push origin HEAD:<远程分支>  # 推送到 GitHub
+```
+
+### 场景 2：查看与理解
+
+```bash
+git status --short --branch    # 两列状态：暂存区 | 工作区
+git diff                       # 工作区 vs 暂存区
+git diff --staged              # 暂存区 vs HEAD（最近一次提交）
+git log --oneline --graph --decorate --all -10  # 提交历史
+git remote -v                  # 查看远程仓库
+```
+
+### 场景 3：撤销与回退
+
+```bash
+git restore --staged <file>    # 撤销 add（文件内容不变，安全）
+git restore <file>             # 丢弃工作区修改（⚠️ 会丢内容）
+git reset --soft HEAD~1        # 撤销最近一次 commit，修改回到暂存区
+git reset --mixed HEAD~1       # 撤销 commit + add，修改回到工作区（默认）
+git reset --hard HEAD~1        # 撤销 commit + add + 工作区（⚠️ 全丢！）
+```
+
+### 场景 4：临时保存现场
+
+```bash
+git stash push -m "备注"       # 把当前改动藏起来，工作区变干净
+git stash list                 # 查看所有 stash
+git stash pop                  # 恢复最新 stash 并删除
+git stash apply                # 恢复最新 stash 但保留（更安全）
+git stash drop                 # 手动删除一条 stash
+```
+
+### 场景 5：后悔药
+
+```bash
+git reflog --date=local -20    # 查看所有操作历史，找回丢失的提交
+git reset --hard <哈希>        # 回到某个历史提交（⚠️ 会丢当前改动）
+```
+
+### 场景 6：GitHub 认证与远程
+
+```bash
+git remote -v                  # 查看远程仓库
+git fetch origin               # 下载远程信息（不合并）
+git push -u origin main:<分支> # 推送并设置跟踪
+# HTTPS 认证失败时用：
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    git push origin HEAD:<远程分支>
+```
+
+### 状态标记速查
+
+```text
+ M file   工作区有修改，未暂存（add 之前）
+M  file   暂存区有修改，工作区干净（add 之后）
+MM file   暂存区有修改，工作区又有新修改（add 后又改了）
+A  file   新文件已暂存
+?? file   未跟踪文件
+```
+
+---
+
 ## 0. 背景
 
 我们现在在一个专门用来学习 Git 的练习仓库里：
@@ -194,7 +308,16 @@ git push
 
 请严格按这个顺序执行。每执行一组，就把终端输出发给我。
 
-### 第 1 组：确认你在正确目录
+---
+
+## 阶段一：基础提交流程（改文件 → add → commit → push）
+
+> 学习目标：掌握 Git 最核心的日常操作链路。
+> 涵盖命令：`git status`、`git diff`、`git add`、`git commit`、`git push`
+
+---
+
+### 【阶段一：基础提交流程】确认环境与状态
 
 要执行的命令：
 
@@ -308,7 +431,7 @@ main...practice-origin/main
 其中 `GIT_LESSON_CN.md` 是我正在编辑的 lesson，`README.md` 是之前重写过的说明文档。
 本轮我们先不处理它们，先专注练习 `notes.md`。
 
-### 第 2 组：修改 notes.md 并查看状态
+### 【阶段一】修改文件并查看 diff
 
 现在请打开 `notes.md`，在最后增加这一行：
 
@@ -377,7 +500,7 @@ diff --git a/notes.md b/notes.md
 
 下一步我们会先把 `notes.md` 放进暂存区。
 
-### 第 3 组：暂存 notes.md
+### 【阶段一】git add — 暂存文件
 
 要执行的命令：
 
@@ -511,7 +634,7 @@ git diff --cached notes.md
 
 说明 `notes.md` 的目标修改已经准备好进入下一次提交。
 
-### 第 4 组：提交 notes.md
+### 【阶段一】git commit — 创建本地提交
 
 要执行的命令：
 
@@ -685,7 +808,7 @@ git:(main)
 当前分支是 main，而且仓库里还有未提交修改。
 ```
 
-### 第 5 组：接入真实 GitHub 远程
+### 【阶段一】git push — 推送到 GitHub
 
 现在我们开始把本地练习仓库接到真实 GitHub 仓库。
 
@@ -955,7 +1078,7 @@ practice/local-git-learning
 
 这样可以安全地在 GitHub 网页上看到本地练习内容，又不会破坏 GitHub 的 `main`。
 
-### 第 6 组：把本地练习内容推到 GitHub 新分支
+### 【阶段一】push 到 GitHub 新分支
 
 要执行的命令是：
 
@@ -1047,7 +1170,16 @@ fatal: Authentication failed
 
 最终结果：认证失败，所以这次 push 没有成功。
 
-### 第 7 组：先修复 GitHub 认证
+---
+
+## 阶段二：GitHub 远程实战（认证、推送、远程分支）
+
+> 学习目标：把本地提交推到真实 GitHub，理解远程仓库的三个层次。
+> 涵盖命令：`git remote`、`git push`、PAT 认证、`git fetch`
+
+---
+
+### 【阶段二：GitHub 认证】修复 push 认证失败
 
 推荐先用 VS Code 的 GitHub 登录能力修复，因为你已经在 VS Code 里操作。
 
@@ -1163,7 +1295,7 @@ Password for 'https://github.com':
 
 注意：token 属于密钥，不要发给别人，不要写进 lesson，不要提交到 Git。
 
-### 第 8 组：创建 GitHub Personal Access Token
+### 【阶段二】创建 Fine-grained PAT 并成功 push
 
 Personal Access Token，简称 PAT，可以理解成：
 
@@ -1259,7 +1391,7 @@ practice/local-git-learning
 
 然后检查本地练习文件是否已经出现在 GitHub 上。
 
-### 第 9 组：GitHub 网页确认 push 成功
+### 【阶段二】理解远程仓库的三个层次
 
 你已经在 GitHub 网页上看到了推送结果：
 
@@ -1274,7 +1406,7 @@ Latest commit: 45de9eb Practice Git add commit push flow
 
 你截图里能看到：
 
-![GitHub 上成功看到 notes.md](assets/github-notes-success_1.png)
+![GitHub 上成功看到 notes.md](assets/github-notes-success.png)
 
 - 左上角分支不是 `main`，而是 `practice/local-g...`，对应完整分支名 `practice/local-git-learning`。
 - 文件列表里出现了本地练习仓库的文件：`.gitignore`、`GIT_LESSON_CN.md`、`README.md`、`app.js`、`notes.md`。
@@ -1328,7 +1460,7 @@ main...origin/practice/local-git-learning
 
 所以从这里开始，我们不再把重点放在本机模拟远程 `practice-origin`，而是继续学习真实 GitHub 分支。
 
-### 第 10 组：提交 lesson 和截图
+### 【阶段二】模拟队友 push — fetch + merge
 
 当前还有两个变化需要提交：
 
@@ -1373,6 +1505,8 @@ git status --short --branch
 执行完这一组，把终端输出发给我，我会继续记录。
 
 你的真实终端输出：
+
+![GitHub 上成功看到 png](assets/github-notes-success_1.png)
 
 ```text
 (vllm-env) ➜  git-learning-sandbox git:(main) ✗ git status --short --branch
@@ -1458,7 +1592,7 @@ create mode 100644 assets/github-notes-success.png
 
 这正是下一步要 `git push` 的原因：把本地新提交 `0494058` 上传到 GitHub。
 
-### 第 11 组：推送到真实 GitHub 分支
+### 【阶段二】分支名不一致时的 push
 
 第 10 组 commit 成功后，再执行：
 
@@ -1720,7 +1854,7 @@ assets/github-notes-success.png
 
 它表示本地 `main` 和 GitHub 远程分支 `origin/practice/local-git-learning` 已经指向同一个最新提交。
 
-### 第 12 组：提交本次 push 记录
+### 【阶段二】提交并推送学习记录
 
 现在只剩这份 lesson 的最新记录还没有提交：
 
@@ -1818,7 +1952,16 @@ To https://github.com/haichengmai20-hub/git-learning-sandbox.git
 注意：我现在为了记录第 12 组，又修改了这份 lesson。所以在我写完这一段之后，
 `git status` 会再次显示 `GIT_LESSON_CN.md` 被修改。这是学习记录继续增长造成的正常现象。
 
-### 第 13 组：继续学什么（先只学本地，不管 push）
+---
+
+## 阶段三：日常高频操作（diff、撤销、暂存、回退）
+
+> 学习目标：掌握日常开发中最常用的"纠错"操作。
+> 涵盖命令：`git diff`、`git restore`、`git stash`、`git reset`
+
+---
+
+### 【阶段三：日常高频操作】概览
 
 你现在已经掌握了最基本链路：
 
@@ -1910,7 +2053,7 @@ git reset --hard <old>
 
 ---
 
-### 第 14 组：本地练习任务（不需要 push）
+### 【阶段三】练习任务总览
 
 下面这一组你可以直接在当前仓库练，全部是本地操作。
 
@@ -1964,3 +2107,441 @@ git status --short --branch
 - 分支整理（rebase/cherry-pick）
 - 冲突处理
 - 提交历史清理（interactive rebase）
+
+### 【阶段三】重新连接 GitHub
+
+由于环境变更，我们在新服务器上重新初始化了 `git-learning-sandbox` 仓库：
+
+1. 从外层 `claudecode_sourcecode1` 仓库中移除了 `git-learning-sandbox/` 的跟踪
+2. 在 `git-learning-sandbox/` 里执行 `git init`，创建独立仓库
+3. 添加远程 `origin` → `https://github.com/haichengmai20-hub/git-learning-sandbox.git`
+4. `git fetch origin` 拉取远程分支信息
+5. `git reset --hard origin/practice/local-git-learning` 把本地 main 对齐到 GitHub 学习分支
+6. 设置跟踪关系：本地 `main` → `origin/practice/local-git-learning`
+
+当前状态：
+
+```text
+## main...origin/practice/local-git-learning
+```
+
+本地和 GitHub 同步，工作区干净。
+
+### 【阶段三】练习：git diff vs git diff --staged
+
+要执行的命令：
+
+```bash
+echo "local diff practice" >> notes.md
+git status --short --branch
+git diff
+git add notes.md
+git diff --staged
+```
+
+你的真实终端输出：
+
+```text
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# echo "local diff practice" >> notes.md
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git status --short --branch
+## main...origin/practice/local-git-learning
+ M notes.md
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git diff
+diff --git a/notes.md b/notes.md
+index 8d2a713..03905fb 100644
+--- a/notes.md
++++ b/notes.md
+@@ -8,4 +8,4 @@
+ - Simulated a teammate pushing a remote change.
+
+ ### 我现在做了一个小小改动
+-- Third practice: I will record every Git command output.
+\ No newline at end of file
++- Third practice: I will record every Git command output.local diff practice
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git add notes.md
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git diff --staged
+diff --git a/notes.md b/notes.md
+index 8d2a713..03905fb 100644
+--- a/notes.md
++++ b/notes.md
+@@ -8,4 +8,4 @@
+ - Simulated a teammate pushing a remote change.
+
+ ### 我现在做了一个小小改动
+-- Third practice: I will record every Git command output.
+\ No newline at end of file
++- Third practice: I will record every Git command output.local diff practice
+```
+
+解释：
+
+#### 第 1 步：`echo "local diff practice" >> notes.md`
+
+这条命令把 `local diff practice` 追加到 `notes.md` 末尾。因为原文件最后一行没有换行符（之前 diff 里出现过 `\ No newline at end of file`），所以新内容直接拼在最后一行后面，变成了：
+
+```text
+- Third practice: I will record every Git command output.local diff practice
+```
+
+这不是两个独立行，而是同一行。如果想让新内容另起一行，应该先加一个换行：
+
+```bash
+echo "" >> notes.md
+echo "local diff practice" >> notes.md
+```
+
+或者用：
+
+```bash
+printf "\nlocal diff practice\n" >> notes.md
+```
+
+#### 第 2 步：`git status --short --branch`
+
+```text
+## main...origin/practice/local-git-learning
+ M notes.md
+```
+
+- 分支信息：本地 `main` 跟踪 `origin/practice/local-git-learning`，没有 ahead/behind。
+- ` M notes.md`：第一列空格，第二列 `M`，表示 `notes.md` 在工作区被修改了，但还没有暂存。
+
+#### 第 3 步：`git diff`
+
+```diff
+-- Third practice: I will record every Git command output.
+\ No newline at end of file
++- Third practice: I will record every Git command output.local diff practice
+```
+
+这是**工作区 diff**，比较的是：
+
+```text
+暂存区里的 notes.md（旧） vs 工作区里的 notes.md（新）
+```
+
+因为之前没有 `git add`，暂存区里的版本还是上次 commit 的内容。所以这里显示的是：
+
+- 旧行：`- Third practice: I will record every Git command output.`（没有换行符）
+- 新行：`- Third practice: I will record every Git command output.local diff practice`
+
+`-` 开头表示旧内容，`+` 开头表示新内容。
+
+#### 第 4 步：`git add notes.md`
+
+没有输出，成功。`notes.md` 的修改进入暂存区。
+
+#### 第 5 步：`git diff --staged`
+
+```diff
+-- Third practice: I will record every Git command output.
+\ No newline at end of file
++- Third practice: I will record every Git command output.local diff practice
+```
+
+这是**暂存区 diff**，比较的是：
+
+```text
+最近一次提交（HEAD）里的 notes.md vs 暂存区里的 notes.md
+```
+
+因为刚才已经 `git add` 了，暂存区里有了新内容，所以 `git diff --staged` 显示的就是"如果现在 commit，会提交哪些变化"。
+
+#### 两种 diff 的区别总结
+
+| 命令 | 比较对象 | 含义 |
+|---|---|---|
+| `git diff` | 暂存区 vs 工作区 | 我改了什么还没 add |
+| `git diff --staged` | HEAD vs 暂存区 | 我 add 了什么还没 commit |
+
+在这个例子里，因为 `git add` 之后没有继续修改文件，所以两次 diff 的输出内容一样。如果你 `git add` 之后再改一次文件，就会看到区别：
+
+```text
+git diff        → 显示 add 之后的修改（工作区 vs 暂存区）
+git diff --staged → 显示 add 时的修改（暂存区 vs HEAD）
+```
+
+这时 `git status --short` 会显示：
+
+```text
+MM notes.md
+```
+
+第一列 `M` = 暂存区有变化，第二列 `M` = 工作区又有新变化。
+
+### 【阶段三】练习：git restore --staged 撤销 add
+
+执行的命令和输出：
+
+```bash
+git restore --staged notes.md
+```
+
+（无输出，成功）
+
+```text
+git status --short --branch
+## main...origin/practice/local-git-learning
+ M GIT_LESSON_CN.md
+ M notes.md
+```
+
+解释：
+
+#### `git restore --staged notes.md`
+
+这条命令把 `notes.md` 从暂存区**撤回**到工作区。效果是：
+
+- 暂存区里不再有 `notes.md` 的修改（相当于撤销了之前的 `git add`）
+- 但工作区里 `notes.md` 的修改**还在**，文件内容没有变
+
+对比一下状态变化：
+
+| 时机 | `git status` 显示 | 含义 |
+|---|---|---|
+| `git add` 之前 | ` M notes.md` | 工作区有修改，未暂存 |
+| `git add` 之后 | `M  notes.md` | 暂存区有修改，工作区干净 |
+| `git restore --staged` 之后 | ` M notes.md` | 回到了 add 之前的状态 |
+
+注意 `M` 的位置：
+- 第二列 `M`（` M`）= 工作区有修改
+- 第一列 `M`（`M `）= 暂存区有修改
+
+#### `GIT_LESSON_CN.md` 也显示 ` M`
+
+这是因为我们刚才更新了 lesson 文件，但还没有 `git add`。这是正常的——我们正在边学边记录。
+
+#### `git restore --staged` vs `git restore`
+
+这两个容易混淆：
+
+| 命令 | 作用 | 文件内容变了吗 |
+|---|---|---|
+| `git restore --staged <file>` | 撤销 `git add`，把文件从暂存区移回工作区 | ❌ 不变 |
+| `git restore <file>` | 丢弃工作区修改，恢复到暂存区的版本 | ✅ 变了（丢失修改） |
+
+简单记：
+- `--staged` = 只动暂存区，不动文件内容（安全）
+- 不加 `--staged` = 动文件内容，丢弃修改（危险⚠️）
+
+### 【阶段三】练习：git stash 临时保存现场
+
+你的真实终端输出：
+
+```text
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git stash push -m "practice: stash notes"
+Saved working directory and index state On main: practice: stash notes
+
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git status --short --branch
+## main...origin/practice/local-git-learning
+
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git stash list
+stash@{0}: On main: practice: stash notes
+
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git stash pop
+On branch main
+Your branch is up to date with 'origin/practice/local-git-learning'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   GIT_LESSON_CN.md
+        modified:   notes.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Dropped refs/stash@{0} (c08033db1abc255d85fa7b6064e4be97a0d98666)
+
+(base) root@368d3525ff68:~/claudecode_sourcecode1/git-learning-sandbox# git status --short --branch
+## main...origin/practice/local-git-learning
+ M GIT_LESSON_CN.md
+ M notes.md
+```
+
+解释：
+
+#### 第 1 步：`git stash push -m "practice: stash notes"`
+
+```text
+Saved working directory and index state On main: practice: stash notes
+```
+
+stash 做了什么？**把工作区和暂存区的所有修改打包藏起来**，工作区恢复成干净状态。
+
+- `push -m "消息"`：给这条 stash 加个备注，方便以后识别
+- 也可以简写为 `git stash "practice: stash notes"`，效果一样
+- 不加 `-m` 也能用，但备注会是默认格式（最近一次 commit 的消息），不好辨认
+
+#### 第 2 步：`git status --short --branch`
+
+```text
+## main...origin/practice/local-git-learning
+```
+
+工作区完全干净了！之前 ` M GIT_LESSON_CN.md` 和 ` M notes.md` 都不见了——它们被 stash 收走了。
+
+#### 第 3 步：`git stash list`
+
+```text
+stash@{0}: On main: practice: stash notes
+```
+
+查看当前所有 stash。`stash@{0}` 是最新的一条。如果多次 stash，会有 `stash@{1}`、`stash@{2}`……依次往后排。
+
+#### 第 4 步：`git stash pop`
+
+```text
+Changes not staged for commit:
+        modified:   GIT_LESSON_CN.md
+        modified:   notes.md
+
+Dropped refs/stash@{0} (c08033db1abc255d85fa7b6064e4be97a0d98666)
+```
+
+`pop` 做了两件事：
+1. 把 stash 里存的修改**恢复**到工作区
+2. 把这条 stash **删除**（`Dropped refs/stash@{0}`）
+
+所以修改回来了，stash 列表也清空了。
+
+#### 第 5 步：`git status --short --branch`
+
+```text
+## main...origin/practice/local-git-learning
+ M GIT_LESSON_CN.md
+ M notes.md
+```
+
+和 stash 之前一模一样，修改完整恢复了。
+
+#### stash 的典型使用场景
+
+1. **临时切分支**：正在开发功能 A，突然要去修 bug。`git stash` → 切分支修 bug → `git stash pop` 回来继续
+2. **拉取远程更新**：本地有未提交的修改，`git pull` 会冲突。`git stash` → `git pull` → `git stash pop`
+3. **换台电脑继续**：`git stash push -m "WIP: 登录功能"` → push 到远程 → 另一台电脑 pull → `git stash pop`
+
+#### `stash pop` vs `stash apply`
+
+| 命令 | 恢复修改 | 删除 stash |
+|---|---|---|
+| `git stash pop` | ✅ | ✅ 一起删 |
+| `git stash apply` | ✅ | ❌ 保留 stash |
+
+`apply` 更安全——恢复后你可以确认修改没问题，再手动 `git stash drop` 删除。如果用 `pop` 恢复后发现有冲突，stash 还是会被删掉，容易丢。
+
+### 【阶段三】练习：git reset --soft 撤销 commit
+
+你最初执行的命令：
+
+```bash
+git add notes.md
+git commit -m "practice: will undo this commit"
+```
+
+输出：
+
+```text
+On branch main
+Your branch is up to date with 'origin/practice/local-git-learning'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+        modified:   GIT_LESSON_CN.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+```
+
+**commit 失败了！** 为什么？
+
+因为之前 `git stash pop` 恢复修改时，`notes.md` 的内容和 HEAD 版本一样（stash 保存的是工作区差异，但 notes.md 的修改在 stash 过程中已经和 HEAD 一致了），所以 `git add notes.md` 实际上没有暂存任何变化。没有暂存的改动，commit 就会失败。
+
+然后执行了 `git reset --soft HEAD~1`，因为 commit 没有成功，这个命令撤销的是 GitHub 上最新的那个提交 `ce0fdfe`，导致本地 main 落后远程 1 个提交（`[behind 1]`）。
+
+**修复过程：**
+
+```bash
+# 恢复到和 GitHub 同步
+git reset --hard origin/practice/local-git-learning
+
+# 重新做：先修改文件，再 add，再 commit
+echo "local undo practice" >> notes.md
+git add notes.md
+git commit -m "practice: will undo this commit"
+```
+
+这次 commit 成功了：
+
+```text
+[main 1f3a2b4] practice: will undo this commit
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+```
+
+然后执行 `git log --oneline -3`：
+
+```text
+1f3a2b4 (HEAD -> main) practice: will undo this commit
+ce0fdfe (origin/practice/local-git-learning) chore: sync local changes (update lesson notes and add success screenshots)
+836acf7 Record GitHub push success
+```
+
+现在本地 main 领先远程 1 个提交（`1f3a2b4`）。
+
+执行 `git reset --soft HEAD~1`：
+
+```text
+git log --oneline -3
+ce0fdfe (HEAD -> main, origin/practice/local-git-learning) chore: sync local changes (update lesson notes and add success screenshots)
+836acf7 Record GitHub push success
+0494058 Add GitHub success screenshot to lesson
+```
+
+提交 `1f3a2b4` 不见了！但修改还在暂存区：
+
+```text
+git status --short --branch
+## main...origin/practice/local-git-learning
+M  notes.md
+```
+
+解释：
+
+#### `git reset --soft HEAD~1` 做了什么？
+
+`HEAD~1` 表示"当前提交的上一级"。`reset --soft` 做了**一件事**：
+
+- 把 HEAD 指针往回移一个提交（从 `1f3a2b4` 移到 `ce0fdfe`）
+- **不修改暂存区**，**不修改工作区**
+
+所以效果是：
+- 提交历史里 `1f3a2b4` 消失了
+- 但 `notes.md` 的修改还在暂存区（`M  notes.md`，第一列 M）
+- 文件内容没变
+
+#### 三种 reset 的区别
+
+| 命令 | 移动 HEAD | 修改暂存区 | 修改工作区 | 修改丢失了吗 |
+|---|---|---|---|---|
+| `git reset --soft HEAD~1` | ✅ | ❌ | ❌ | ❌ 全在暂存区 |
+| `git reset --mixed HEAD~1` | ✅ | ✅ | ❌ | ❌ 在工作区 |
+| `git reset --hard HEAD~1` | ✅ | ✅ | ✅ | ⚠️ **丢了！** |
+
+- `--soft`：最安全，修改回到暂存区，随时可以重新 commit
+- `--mixed`（默认，不加参数就是 mixed）：修改回到工作区，需要重新 `git add`
+- `--hard`：**危险！** 修改直接丢弃，只能靠 `git reflog` 找回
+
+#### 什么时候用 `reset --soft`？
+
+最常见的场景：**提交写错了，想重新写 commit 消息或补充文件**
+
+```bash
+# 提交后发现漏了一个文件
+git reset --soft HEAD~1
+git add forgotten-file.txt
+git commit -m "正确的提交消息，包含所有文件"
+```
+
+#### ⚠️ 你之前遇到的坑：commit 没成功就执行了 reset
+
+这是一个容易犯的错误。如果 commit 失败了（没有新内容可提交），`git reset --soft HEAD~1` 会撤销**上一次成功的提交**，而不是你想要撤销的那个（不存在的）提交。
+
+**教训**：执行 `reset` 之前，先用 `git log` 确认你要撤销的提交确实存在。
