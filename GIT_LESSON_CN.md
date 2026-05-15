@@ -3,14 +3,16 @@
 ## 文档结构
 
 ```
-命令速查表（开头，6 个场景 + 状态标记速查）
+命令速查表（开头，9 个场景 + 状态标记速查）
 ├── 场景 1：日常提交流程
 ├── 场景 2：查看与理解
 ├── 场景 3：撤销与回退
 ├── 场景 4：临时保存现场
 ├── 场景 5：后悔药
 ├── 场景 6：GitHub 认证与远程
-└── 状态标记速查
+├── 场景 7：合并后清理
+├── 场景 8：冲突处理
+└── 场景 9：Fork 工作流
 
 背景 & 基础概念（第 0-3 节）
 
@@ -38,6 +40,31 @@
 ├── 练习：git restore --staged 撤销 add
 ├── 练习：git stash 临时保存现场
 └── 练习：git reset --soft 撤销 commit
+
+阶段四：GitHub 协作开发（分支、PR、代码审查）
+├── 概念：为什么不能直接在 main 上开发？
+├── 练习 1：创建功能分支并开发
+├── 练习 2：推送功能分支到 GitHub 并创建 Pull Request
+├── 练习 3：合并后清理——同步 main、删除功能分支
+└── 练习 4：代码审查——在 PR 里评论、修改、追加提交
+
+阶段五：合并冲突处理（最常遇到的协作难题）
+├── 概念：冲突是怎么产生的？
+├── 练习 1：本地合并冲突——两分支改同一文件
+├── 练习 2：PR 里的冲突——GitHub 提示 Conflict，本地解决后推送
+└── 练习 3：冲突标记详解——手动解决冲突的完整流程
+
+阶段六：Fork 工作流（参与别人的项目）
+├── 概念：Fork vs Branch——什么时候用哪个？
+├── 练习 1：Fork 仓库 → 克隆 Fork → 建功能分支 → PR 回原仓库
+├── 练习 2：同步 Fork——保持你的 Fork 和上游仓库一致
+└── 练习 3：upstream 与 origin 的区别
+
+阶段七：高级操作（按需学习）
+├── 练习 1：git rebase — 交互式整理提交历史
+├── 练习 2：git cherry-pick — 挑选特定提交
+├── 练习 3：git tag — 版本标签与发布
+└── 练习 4：git bisect — 二分查找引入 bug 的提交
 ```
 
 ## 命令速查表
@@ -100,6 +127,37 @@ git push -u origin main:<分支> # 推送并设置跟踪
 env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
     -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
     git push origin HEAD:<远程分支>
+```
+
+### 场景 7：合并后清理
+
+```bash
+git checkout main              # 切回主分支
+git pull --rebase origin main  # 拉取远程 main 的合并结果
+git branch -d feature/xxx      # 删除本地功能分支（已合并的）
+git push origin --delete feature/xxx  # 删除远程功能分支
+git branch -a                  # 查看所有分支，确认已清理
+```
+
+### 场景 8：冲突处理
+
+```bash
+git merge feature/xxx          # 合并分支（可能冲突）
+# 冲突时：打开文件，找到 <<<<<<< 标记，手动选择保留内容
+# 修改后：
+git add <冲突文件>
+git commit                     # 完成合并提交
+# 放弃合并（回到合并前）：
+git merge --abort
+```
+
+### 场景 9：Fork 工作流
+
+```bash
+git remote add upstream <原仓库URL>  # 添加上游仓库
+git fetch upstream                    # 拉取上游更新
+git merge upstream/main               # 合并上游更新到本地
+git push origin main                  # 推送到你的 Fork
 ```
 
 ### 状态标记速查
@@ -2545,3 +2603,1771 @@ git commit -m "正确的提交消息，包含所有文件"
 这是一个容易犯的错误。如果 commit 失败了（没有新内容可提交），`git reset --soft HEAD~1` 会撤销**上一次成功的提交**，而不是你想要撤销的那个（不存在的）提交。
 
 **教训**：执行 `reset` 之前，先用 `git log` 确认你要撤销的提交确实存在。
+
+---
+
+## 阶段四：GitHub 协作开发（分支、PR、代码审查）
+
+> 学习目标：掌握多人协作的核心工作流——功能分支 + Pull Request + 代码审查。
+> 涵盖命令：`git branch`、`git checkout -b`、`git fetch`、`git pull`、GitHub PR 流程
+
+---
+
+### 【阶段四】概念：为什么不能直接在 main 上开发？
+
+想象一下：你和同事都在 `main` 上直接改代码。你改了一半，同事 push 了一个新版本，你 pull 下来发现和他的改动冲突了——但你的改动还没做完，没法提交。两个人互相覆盖，一团糟。
+
+**解决方案：功能分支 + Pull Request**
+
+```text
+main ────────────────────────────────────── 永远是稳定版本
+  │
+  ├── feature/login ──── 你在这里开发登录功能
+  │
+  └── feature/search ─── 同事在这里开发搜索功能
+
+开发完 → 发 PR → 代码审查 → 合并到 main
+```
+
+核心原则：
+1. **main 永远是可用的**，不直接在上面改代码
+2. **每个功能/修复建一个分支**，分支名说明在做什么
+3. **开发完发 Pull Request**，让别人 review 后再合并
+4. **合并后删除功能分支**，保持分支列表干净
+
+### 【阶段四】练习 1：创建功能分支并开发
+
+场景：你要给项目加一个 `CONTRIBUTING.md`（贡献指南），从创建分支到开发完成。
+
+#### 你执行的第一条命令
+
+```bash
+git checkout main
+```
+
+输出：
+
+```text
+M       GIT_LESSON_CN.md
+Already on 'main'
+Your branch is ahead of 'origin/practice/local-git-learning' by 1 commit.
+```
+
+解释：
+- `Already on 'main'`：你已经在 main 分支上了
+- `M GIT_LESSON_CN.md`：lesson 文件有未提交的修改（我们一直在更新它）
+- `ahead of ... by 1 commit`：本地比远程多 1 个提交（之前提交的 lesson 更新还没 push）
+
+#### 你执行的第二条命令
+
+```bash
+git pull origin main:practice/local-git-learning
+```
+
+输出：
+
+```text
+hint: You have divergent branches and need to specify how to reconcile them.
+fatal: Need to specify how to reconcile divergent branches.
+```
+
+**❌ 报错了！** Git 说"分叉了"，什么是分叉？
+
+##### 什么是"分叉"？
+
+Git 的每个提交都指向前一个提交，形成一条链：
+
+```text
+正常情况（线性，没有分叉）：
+
+A ── B ── C ── D
+              ↑
+            HEAD（你在 D，远程也在 D，完全同步）
+```
+
+"分叉"就是出现了两条不同的链，从同一个点分开了：
+
+```text
+分叉情况：
+
+        A ── B ── C          ← 远程的链
+             │
+             └── X ── Y      ← 你本地的链
+                    ↑
+                  HEAD（你在 Y）
+
+B 之后，远程走了 C，你本地走了 X、Y。两条路不一样了，这就是"分叉"。
+```
+
+##### 你的仓库为什么会分叉？
+
+**关键原因：你本地 commit 了但没 push，所以本地比远程多了提交。**
+
+```text
+时间线：
+
+1. 你从 GitHub 拉取代码 → 本地和远程都是 ce0fdfe     ← 同步 ✅
+2. 你在本地修改 lesson 并 commit → 本地变成 e75f338    ← 分叉开始！
+3. 你没有 push → 远程还是 ce0fdfe                    ← 远程不知道你的提交
+4. 你又创建了功能分支并 commit → 本地变成 7c1d188     ← 分叉越来越大
+```
+
+用图表示：
+
+```text
+ce0fdfe ─── chore: sync local changes       ← 远程 practice/local-git-learning 停在这里
+    │
+    └── e75f338 ─── lesson: add cheat sheet  ← 你本地 main 多了这个提交
+            │
+            └── 7c1d188 ─── feat: CONTRIBUTING.md  ← 功能分支又在 main 基础上多了一个
+```
+
+**只要你 commit 了但没 push，本地就比远程"多"了提交，就产生了分叉。**
+
+##### 三种合并方式怎么处理分叉？
+
+当你 `git pull` 遇到分叉时，Git 问你要怎么把两条路合到一起。有三种选择：
+
+---
+
+**方式 1：`--rebase`（推荐 ✅）—— 把你的提交"搬"到远程后面**
+
+```text
+合并前：
+
+    ce0fdfe ─── C_remote         ← 远程有新提交 C_remote
+        │
+        └── X ── Y               ← 你本地有 X、Y
+
+执行 git pull --rebase 后：
+
+    ce0fdfe ─── C_remote ─── X' ── Y'    ← 线性，干净！
+                              ↑
+                            HEAD
+
+X' 和 Y' 是你的提交"重放"到远程后面后的新版本（内容一样，哈希变了）
+```
+
+就像排队：你插队到了远程的后面，历史变成一条直线。
+
+**优点**：历史干净，一条线，好读
+**缺点**：你的提交哈希会变（因为父提交变了）
+
+---
+
+**方式 2：`--no-rebase`（merge）—— 创建一个合并提交，保留分叉**
+
+```text
+合并前：
+
+    ce0fdfe ─── C_remote         ← 远程
+        │
+        └── X ── Y               ← 你本地
+
+执行 git pull --no-rebase 后：
+
+    ce0fdfe ─── C_remote ───┐
+                            ├── M          ← 合并提交 M
+        X ── Y ─────────────┘
+                    ↑
+                  HEAD
+```
+
+就像两个人各自走了不同的路，最后在 M 点汇合。分叉的历史被完整保留。
+
+**优点**：保留完整的时间线，能看到谁什么时候做了什么
+**缺点**：历史有分叉，项目大了以后图很乱
+
+---
+
+**方式 3：`--ff-only` —— 只允许快进，不允许分叉**
+
+```text
+情况 A：远程没有新提交（可以快进）
+
+    ce0fdfe ─── X ── Y     ← 你本地
+              ↑
+            远程也在 ce0fdfe
+
+    执行 git pull --ff-only 后：
+
+    ce0fdfe ─── X ── Y     ← 远程"快进"到 Y
+                        ↑
+                      远程也到了 Y（成功 ✅）
+
+
+情况 B：远程有新提交（不能快进）
+
+    ce0fdfe ─── C_remote   ← 远程
+        │
+        └── X ── Y         ← 你本地
+
+    执行 git pull --ff-only → 直接报错 ❌
+    "fatal: Not possible to fast-forward, aborting."
+```
+
+就像快进视频——只有远程没动过，才能直接快进到你的位置。如果远程也有新东西，就拒绝合并。
+
+**优点**：最安全，绝不会产生合并提交或改写历史
+**缺点**：很多情况下会失败，需要你手动处理
+
+---
+
+##### 三种方式对比总结
+
+| 方式 | 命令 | 历史线 | 什么时候用 |
+|---|---|---|---|
+| rebase | `git pull --rebase` | 线性，干净 ✅ | **日常推荐**，个人分支 |
+| merge | `git pull --no-rebase` | 有分叉，保留完整记录 | 多人协作、公共分支 |
+| ff-only | `git pull --ff-only` | 只允许快进 | CI/自动化脚本，最安全 |
+
+**你的情况**：本地只是领先（远程没动），其实三种都能用。推荐 `--rebase` 保持干净。
+
+##### 解决方法
+
+```bash
+git pull --rebase origin practice/local-git-learning
+```
+
+但这次因为网络超时连不上 GitHub，pull 失败了。本地已经是最新的，所以跳过 pull 直接继续。
+
+#### 你的真实执行过程（完整记录）
+
+##### 第 1 步：stash
+
+```bash
+git stash push -m "WIP: lesson updates"
+```
+
+```text
+Saved working directory and index state On main: WIP: lesson updates
+```
+
+✅ 成功，工作区变干净。
+
+##### 第 2 步：pull
+
+```bash
+git pull --rebase origin practice/local-git-learning
+```
+
+```text
+fatal: unable to access 'https://github.com/haichengmai20-hub/git-learning-sandbox.git/':
+Failed to connect to github.com port 443 after 129696 ms: Connection timed out
+```
+
+❌ 网络超时，连不上 GitHub。这在 VS Code Remote SSH 环境下常见。
+
+**处理方式**：如果本地已经是最新的（没有别人 push 过新内容），可以跳过 pull，直接继续。确认方法：
+
+```bash
+git log --oneline -1
+# 如果本地最新提交和远程一样，就不需要 pull
+```
+
+##### 第 3 步：创建功能分支
+
+```bash
+git checkout -b feature/add-contributing-guide
+```
+
+```text
+Switched to a new branch 'feature/add-contributing-guide'
+```
+
+✅ 成功创建并切换到新分支。
+
+##### 第 4 步：stash pop
+
+```bash
+git stash pop
+```
+
+```text
+error: Your local changes to the following files would be overwritten by merge:
+        GIT_LESSON_CN.md
+Please commit your changes or stash them before you merge.
+Aborting
+```
+
+❌ 又报错了！原因：`git checkout -b` 切换分支时，Git 把 stash 里存的 `GIT_LESSON_CN.md` 修改带到了新分支的工作区。但 stash pop 想恢复同样的修改，两边冲突了。
+
+**实际上修改已经在工作区了**（看下面的 `M GIT_LESSON_CN.md`），所以 stash pop 虽然报错，但修改没有丢失。
+
+**教训**：`stash → checkout → stash pop` 的顺序有时会冲突。更安全的做法：
+
+```bash
+# 方案 A：先提交再切分支
+git add -A && git commit -m "WIP"
+git checkout -b feature/xxx
+# 到新分支后如果需要，git reset HEAD~1 撤销 WIP 提交
+
+# 方案 B：直接切分支（如果修改和目标分支不冲突）
+git checkout -b feature/xxx
+# 修改会自动带过来
+```
+
+##### 第 5 步：创建 CONTRIBUTING.md
+
+```bash
+printf "# 贡献指南\n\n欢迎贡献！..." > CONTRIBUTING.md
+```
+
+```text
+bash: syntax error near unexpected token `newline'
+```
+
+❌ 终端编码问题！中文字符在 `printf` 里导致 bash 解析失败。
+
+**解决方法**：用 `python3` 写文件，避免终端编码问题：
+
+```bash
+python3 -c "
+with open('CONTRIBUTING.md', 'w') as f:
+    f.write('# Contributing Guide\n\nWelcome! Please follow these steps:\n\n1. Fork this repository\n2. Create a feature branch\n3. Commit your changes\n4. Open a Pull Request\n')
+"
+```
+
+或者用最简单的 `echo`：
+
+```bash
+echo "# Contributing Guide" > CONTRIBUTING.md
+echo "" >> CONTRIBUTING.md
+echo "Welcome! Please follow these steps:" >> CONTRIBUTING.md
+echo "1. Fork this repository" >> CONTRIBUTING.md
+echo "2. Create a feature branch" >> CONTRIBUTING.md
+echo "3. Commit your changes" >> CONTRIBUTING.md
+echo "4. Open a Pull Request" >> CONTRIBUTING.md
+```
+
+##### 第 6 步：查看状态
+
+```text
+git status --short --branch
+## feature/add-contributing-guide
+ M GIT_LESSON_CN.md
+?? CONTRIBUTING.md
+```
+
+- ` M GIT_LESSON_CN.md`：lesson 的修改在工作区（从 main 带过来的）
+- `?? CONTRIBUTING.md`：新文件，未跟踪
+
+##### 第 7 步：暂存并提交
+
+```bash
+git add CONTRIBUTING.md
+git commit -m "feat: add CONTRIBUTING.md"
+```
+
+```text
+[feature/add-contributing-guide 7c1d188] feat: add CONTRIBUTING.md
+ 1 file changed, 8 insertions(+)
+ create mode 100644 CONTRIBUTING.md
+```
+
+✅ 成功！注意：
+- 提交发生在 `feature/add-contributing-guide` 分支
+- `main` 分支没有动——这就是功能分支隔离的意义
+
+##### 第 8 步：查看提交历史
+
+```text
+git log --oneline --graph --decorate --all -5
+* 7c1d188 (HEAD -> feature/add-contributing-guide) feat: add CONTRIBUTING.md
+* e75f338 (main) lesson: add command cheat sheet, restructure by stages, complete practice tasks
+* ce0fdfe (origin/practice/local-git-learning) chore: sync local changes
+* 836acf7 Record GitHub push success
+* 0494058 Add GitHub success screenshot to lesson
+```
+
+关键观察：
+- `HEAD -> feature/add-contributing-guide`：你在这个分支上
+- `main` 还在 `e75f338`，没有新提交
+- `7c1d188` 只在功能分支上存在
+
+#### 练习 1 踩坑总结
+
+| 坑 | 原因 | 解决 |
+|---|---|---|
+| `git pull` 分叉报错 | 本地和远程历史不一致 | 加 `--rebase` |
+| `git pull` 网络超时 | SSH 环境连不上 GitHub | 本地已是最新可跳过 |
+| `stash pop` 冲突 | 切分支后修改已在工作区 | 修改没丢，可以忽略 |
+| `printf` 中文乱码 | 终端编码问题 | 用 `python3 -c` 或 `echo` 写文件 |
+
+#### `git checkout -b` 做了什么？
+
+```bash
+git checkout -b feature/add-contributing-guide
+```
+
+等价于：
+
+```bash
+git branch feature/add-contributing-guide   # 创建分支
+git checkout feature/add-contributing-guide  # 切换到这个分支
+```
+
+`-b` 就是"创建并切换"的简写。
+
+#### 分支命名规范
+
+| 前缀 | 用途 | 示例 |
+|---|---|---|
+| `feature/` | 新功能 | `feature/add-contributing-guide` |
+| `fix/` | 修复 bug | `fix/login-redirect-loop` |
+| `docs/` | 文档改动 | `docs/update-api-reference` |
+| `refactor/` | 重构（不改功能） | `refactor/split-pipeline` |
+| `chore/` | 杂项（依赖更新等） | `chore/upgrade-python-3.12` |
+
+---
+
+### 【阶段四】练习 2：推送功能分支到 GitHub 并创建 Pull Request
+
+现在你的功能分支有了新提交，下一步是推送到 GitHub 并创建 PR。
+
+#### 第 1 步：推送功能分支
+
+```bash
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    git push -u origin feature/add-contributing-guide
+```
+
+输出：
+
+```text
+Enumerating objects: 10, done.
+Counting objects: 100% (10/10), done.
+Delta compression using up to 256 threads
+Compressing objects: 100% (7/7), done.
+Writing objects: 100% (7/7), 7.10 KiB | 7.10 MiB/s, done.
+Total 7 (delta 3), reused 0 (delta 0), pack-reused 0
+remote: Resolving deltas: 100% (3/3), completed with 2 local objects.
+remote:
+remote: Create a pull request for 'feature/add-contributing-guide' on GitHub by visiting:
+remote:      https://github.com/haichengmai20-hub/git-learning-sandbox/pull/new/feature/add-contributing-guide
+remote:
+To https://github.com/haichengmai20-hub/git-learning-sandbox.git
+ * [new branch]      feature/add-contributing-guide -> feature/add-contributing-guide
+Branch 'feature/add-contributing-guide' set up to track remote branch 'feature/add-contributing-guide' from 'origin'.
+```
+
+✅ 关键信息解读：
+- `* [new branch]`：这是第一次推送，远程还没有这个分支，所以 Git 在远程新建了它
+- `set up to track remote branch`：本地分支和远程分支建立了跟踪关系，以后在这个分支上直接 `git push` 即可，不用再写完整的 `origin feature/xxx`
+- `remote: Create a pull request ... by visiting:`：GitHub 提示你可以直接用这个链接创建 PR
+
+确认远程分支已出现：
+
+```bash
+git fetch origin
+git branch -r
+```
+
+输出：
+
+```text
+  origin/feature/add-contributing-guide
+  origin/main
+  origin/practice/local-git-learning
+```
+
+✅ 三个远程分支都在，`origin/feature/add-contributing-guide` 是刚才推上去的。
+
+#### 第 2 步：GitHub 上出现黄色横幅
+
+推送完成后打开仓库首页，GitHub 会自动检测到有新分支推上来，显示黄色横幅：
+
+> **feature/add-contributing-guide had recent pushes 9 minutes ago**  [Compare & pull request]
+
+同时，点击分支下拉可以看到所有三个分支都在了：
+
+![仓库首页：分支切换弹窗](assets/Github_notes.png)
+
+- `main`（default）—— 主分支，稳定版本
+- `feature/add-contributing-guide` —— 你刚推上去的功能分支
+- `practice/local-git-learning` —— 之前阶段用的远程分支
+
+#### 第 3 步：进入 Pull Requests 标签页
+
+点击导航栏的 **Pull requests**，此时列表还是空的——你的功能分支已经 push 了，但 PR 还没建：
+
+![Pull Requests 空列表页](assets/Github_notes_2.png)
+
+黄色横幅依然在这里提示你。点击 **Compare & pull request** 进入下一步。
+
+> **注意**：横幅只在最近推送后短时间内显示。如果找不到，也可以点页面右上角的 **New pull request** 手动选分支。
+
+#### 第 4 步：Comparing changes —— 确认 diff
+
+GitHub 打开"Comparing changes"页面，自动选好了：
+- **base：main** ← 目标，要合并进去的分支
+- **compare：feature/add-contributing-guide** ← 你的功能分支
+
+显示 **Able to merge**，说明没有冲突：
+
+![Comparing changes 页面：diff 预览](assets/Github_notes_3.png)
+
+下方显示本次 PR 包含：
+- **1 commit**（`feat: add CONTRIBUTING.md`，哈希 `7c1d188`）
+- **1 file changed**，8 行新增，0 行删除
+- diff 内容：新增了 `CONTRIBUTING.md`
+
+确认没问题后，填写 PR 标题和正文，点击 **Create pull request**。
+
+#### 第 5 步：PR 正文 —— 怎么写
+
+这是本次练习实际创建的 PR 页面：
+
+![PR 正文页](assets/Github_notes_4.png)
+
+PR 状态为 **Open · Ready to merge**，正文结构：
+
+```
+Title：feat: add CONTRIBUTING.md
+
+## What
+新增项目贡献指南 CONTRIBUTING.md，说明协作流程。
+
+## Why
+项目目前没有贡献指南，新协作者不知道如何参与。添加后可以：
+- 明确 Fork → 分支 → 提交 → PR 的标准流程
+- 降低新人的参与门槛
+
+## Changes
+- 新增 CONTRIBUTING.md（8 行）
+
+## Checklist
+- [x] 本地测试通过
+- [x] 提交消息符合 feat: 规范
+```
+
+#### PR 描述怎么想出来的？
+
+写 PR 就像给同事发一封邮件，回答四个问题：
+
+| 问题 | 对应 section | 这次的答案 |
+|---|---|---|
+| 你做了什么？ | What | 新增了 CONTRIBUTING.md |
+| 为什么做？ | Why | 项目没有贡献指南，新人不知道怎么参与 |
+| 改了哪些文件？ | Changes | 新增 1 个文件 |
+| 我该关注什么？ | Checklist | 本地测试、提交规范 |
+
+以后不管 PR 大小，按这个模板填就行。改动大的 PR 多写几句，改动小的简单写。
+
+#### 第 6 步：确认 PR 侧边栏
+
+从截图右侧可以看到，这个 PR 还没分配任何信息：
+
+- **Reviewers**：No reviews（真实项目里要指定代码审查人）
+- **Assignees**：No one（谁负责这个 PR）
+- **Labels**：None yet（可以打标签：`enhancement`、`documentation` 等）
+- **Milestone**：No milestone
+- **Development**：Successfully merging this PR may close these issues.
+
+单人项目可以忽略这些字段。多人协作时，至少要指定 **Reviewers**。
+
+#### 第 7 步：合并 PR
+
+底部显示 **No conflicts with base branch**，点击绿色的 **Merge pull request** 即可完成合并。
+
+合并后 `feature/add-contributing-guide` 分支的改动就进入了 `main`。
+
+#### 练习 2 完整流程总结
+
+```text
+本地功能分支开发完
+        ↓
+git push -u origin feature/add-contributing-guide
+        ↓
+GitHub 首页出现黄色横幅
+        ↓
+点击 Compare & pull request
+        ↓
+确认 base/compare 分支、检查 diff
+        ↓
+填写 PR 标题（feat: xxx）和 What/Why/Changes/Checklist
+        ↓
+Create pull request
+        ↓
+Review（多人项目）→ 无冲突 → Merge pull request
+        ↓
+功能合并进 main ✅
+```
+
+#### PR 相关命令速查
+
+```bash
+# 推送功能分支（-u 设置跟踪，下次直接 git push 即可）
+git push -u origin feature/xxx
+
+# 推送后查看远程分支列表
+git branch -r
+
+# 查看本地+远程所有分支
+git branch -a
+
+# 合并后删除本地功能分支（保持分支列表干净）
+git checkout main
+git branch -d feature/xxx
+
+# 删除远程功能分支
+git push origin --delete feature/xxx
+```
+
+执行完把输出发给我！
+
+---
+
+### 【阶段四】练习 3：合并后清理——同步 main、删除功能分支
+
+> 学习目标：PR 合并后，把本地 main 同步到最新状态，并清理已合并的功能分支。
+> 涵盖命令：`git checkout`、`git pull`、`git branch -d`、`git push --delete`
+
+---
+
+#### 为什么要做清理？
+
+PR 在 GitHub 上合并后，你本地的仓库并不知道这件事。此时：
+
+```text
+GitHub 上的 main：已包含 CONTRIBUTING.md（PR 合并进来了）
+你本地的 main：还没有 CONTRIBUTING.md（你一直在功能分支上工作）
+你本地的 feature/add-contributing-guide：还在，但已经没用了（内容已合并）
+远程的 feature/add-contributing-guide：也还在，占空间
+```
+
+清理要做三件事：
+1. 把本地 main 同步到 GitHub main（拉取合并结果）
+2. 删除本地功能分支（已合并，不再需要）
+3. 删除远程功能分支（保持远程分支列表干净）
+
+#### 前提：确认你在正确的目录
+
+> ⚠️ 所有 Git 命令都必须在 `git-learning-sandbox` 目录里执行。
+> 如果你当前在 `~`（主目录）或其他目录，`git` 命令会报 `not a git repository`。
+
+先确认目录：
+
+```bash
+pwd
+```
+
+如果输出不是 `git-learning-sandbox` 结尾的路径，先切过去：
+
+```bash
+cd /root/claudecode_sourcecode1/git-learning-sandbox
+pwd
+```
+
+确认后，再检查当前分支：
+
+```bash
+git status --short --branch
+```
+
+如果你当前在 `feature/add-contributing-guide` 分支，有未提交的修改（比如 `M GIT_LESSON_CN.md`），
+先把这些修改暂存起来：
+
+```bash
+git stash push -m "WIP: lesson updates before cleanup practice"
+git status --short --branch
+```
+
+暂存后工作区变干净，就可以安全切分支了。
+
+#### 第 1 步：切回 main
+
+```bash
+git checkout main
+```
+
+你之前在 `feature/add-contributing-guide` 分支上工作。现在要回到 main 来同步。
+
+#### 第 2 步：从 GitHub 拉取合并结果
+
+```bash
+git pull --rebase origin main
+```
+
+这一步会把 GitHub 上 main 的最新状态（包含 PR 合并的内容）拉到本地 main。
+
+如果网络不通（之前遇到过超时），可以用：
+
+```bash
+git fetch origin
+git reset --hard origin/main
+```
+
+⚠️ `reset --hard` 会覆盖本地 main，确保你没有未提交的重要修改再执行。
+
+#### 第 3 步：确认 CONTRIBUTING.md 已在 main 上
+
+```bash
+ls -la CONTRIBUTING.md
+git log --oneline --graph --decorate --all -10
+```
+
+你应该能看到：
+- `CONTRIBUTING.md` 出现在 main 分支的文件列表里
+- 提交历史里出现了 PR 合并的提交（GitHub 合并时会创建一个 merge commit）
+
+#### 第 4 步：删除本地功能分支
+
+```bash
+git branch -d feature/add-contributing-guide
+```
+
+`-d`（小写 d）是"安全删除"：只有当这个分支已经合并到当前分支时，才允许删除。
+如果分支没合并就删，Git 会报错提醒你。
+
+如果要强制删除（不管有没有合并）：
+
+```bash
+git branch -D feature/add-contributing-guide
+```
+
+⚠️ `D`（大写）是强制删除，确保你知道分支内容已经不需要了再用。
+
+#### 第 5 步：删除远程功能分支
+
+```bash
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    git push origin --delete feature/add-contributing-guide
+```
+
+这条命令告诉 GitHub：把这个远程分支删掉。
+
+为什么要删远程分支？因为：
+- 功能已合并，远程分支没有继续存在的必要
+- 分支太多会让仓库列表变乱
+- GitHub 默认也会在合并 PR 后提示你删除分支
+
+#### 第 6 步：确认清理完成
+
+```bash
+git branch -a
+git log --oneline --graph --decorate --all -10
+```
+
+预期结果：
+- 本地分支只剩 `main` 和 `*` 标记（当前分支）
+- 远程分支只有 `origin/main` 和 `origin/practice/local-git-learning`
+- `feature/add-contributing-guide` 本地和远程都不见了
+
+#### 练习 3 命令速查
+
+```bash
+# 1. 切回 main
+git checkout main
+
+# 2. 同步 GitHub 的合并结果
+git pull --rebase origin main
+# 网络不通时：git fetch origin && git reset --hard origin/main
+
+# 3. 删除本地功能分支（安全删除，已合并才允许）
+git branch -d feature/xxx
+
+# 4. 删除远程功能分支
+git push origin --delete feature/xxx
+
+# 5. 确认清理完成
+git branch -a
+```
+
+#### 什么时候不删功能分支？
+
+| 情况 | 是否删除 |
+|---|---|
+| 功能已合并到 main | ✅ 删除，不再需要 |
+| 功能开发中断，以后继续 | ❌ 保留，推到远程保存 |
+| 实验性功能，不确定要不要 | ❌ 保留本地，不推远程 |
+| 长期存在的分支（如 `develop`、`staging`） | ❌ 永远保留 |
+
+---
+
+### 【阶段四】练习 4：代码审查——在 PR 里评论、修改、追加提交
+
+> 学习目标：体验 PR 的核心价值——代码审查。学会在 PR 里提意见、修改代码、追加提交。
+> 涵盖操作：GitHub PR 评论、行内评论、本地修改后追加推送到 PR
+
+---
+
+#### 代码审查是什么？
+
+代码审查（Code Review）就是：**你写完代码，同事看了觉得没问题，才允许合并。**
+
+```text
+你提交 PR → 同事看代码 → 三种结果：
+  ├── Approve（同意，可以合并）
+  ├── Request changes（有问题，改完再合并）
+  └── Comment（只评论，不表态）
+```
+
+真实项目里，至少需要 1 人 Approve 才能合并。这是保护 main 质量的核心机制。
+
+#### 第 1 步：创建一个新的功能分支做练习
+
+```bash
+git checkout main
+git checkout -b feature/add-team-info
+```
+
+创建一个 `team.md` 文件：
+
+```bash
+echo "# Team" > team.md
+echo "" >> team.md
+echo "## Members" >> team.md
+echo "- Alice (Lead)" >> team.md
+echo "- Bob (Dev)" >> team.md
+```
+
+提交并推送：
+
+```bash
+git add team.md
+git commit -m "feat: add team.md with member list"
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    git push -u origin feature/add-team-info
+```
+
+#### 第 2 步：在 GitHub 创建 PR
+
+和练习 2 一样，去 GitHub 页面创建 PR。标题写 `feat: add team.md`。
+
+#### 第 3 步：模拟代码审查——给自己提意见
+
+作为练习，你扮演两个角色：
+
+**角色 A：PR 作者**（你）
+**角色 B：审查者**（也是你，模拟同事）
+
+在 PR 页面做以下操作：
+
+1. **整体评论**：在 PR 底部的评论区写："看起来不错，但建议补充联系方式。"
+
+2. **行内评论**：点击 `team.md` 的 diff 里的 `+` 号，在某一行旁边写评论：
+   - 在 `Bob (Dev)` 这行旁边写："建议加上 Charlie"
+
+3. **Request changes**：点击 Review → Request changes → Submit review
+
+#### 第 4 步：回应审查——本地修改后追加推送到 PR
+
+审查者要求补充内容。你回到本地修改：
+
+```bash
+echo "- Charlie (QA)" >> team.md
+git add team.md
+git commit -m "feat: add Charlie to team list per code review"
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    git push
+```
+
+关键点：**不需要创建新 PR！** 你在同一个功能分支上追加 commit 并 push，GitHub 会自动把新提交添加到已有的 PR 里。
+
+#### 第 5 步：确认 PR 已更新
+
+回到 GitHub 的 PR 页面，你会看到：
+- PR 里多了一个 commit（`feat: add Charlie to team list per code review`）
+- 评论区显示你推送了新提交
+- 你可以点 Review → Approve → Submit review（模拟审查通过）
+
+#### 第 6 步：合并并清理
+
+审查通过后，合并 PR，然后清理分支：
+
+```bash
+git checkout main
+git pull --rebase origin main
+git branch -d feature/add-team-info
+env -u GIT_ASKPASS -u SSH_ASKPASS -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    git push origin --delete feature/add-team-info
+```
+
+#### 练习 4 关键概念
+
+**追加提交到 PR 的原理：**
+
+```text
+PR 不是"一次性"的，它跟踪的是一个分支。
+
+你推送新提交到 feature/add-team-info 分支
+        ↓
+GitHub 检测到这个分支有新提交
+        ↓
+自动把新提交追加到已打开的 PR 里
+        ↓
+PR 页面更新，审查者能看到你的修改
+```
+
+**代码审查的三种态度：**
+
+| 态度 | 含义 | 什么时候用 |
+|---|---|---|
+| Approve | 代码没问题，可以合并 | 审查通过 |
+| Request changes | 有问题，改完再看 | 发现 bug、风格问题、缺失功能 |
+| Comment | 只评论，不表态 | 小建议、提问、补充信息 |
+
+**行内评论 vs 整体评论：**
+
+| 类型 | 针对性 | 适用场景 |
+|---|---|---|
+| 行内评论 | 某一行/几行代码 | 指出具体代码问题 |
+| 整体评论 | 整个 PR | 总体评价、大方向建议 |
+
+---
+
+## 阶段五：合并冲突处理（最常遇到的协作难题）
+
+> 学习目标：理解冲突产生的原因，掌握本地和 PR 两种场景下解决冲突的方法。
+> 涵盖命令：`git merge`、冲突标记处理、`git merge --abort`、`git add` + `git commit`
+
+---
+
+### 【阶段五】概念：冲突是怎么产生的？
+
+#### 什么时候不会冲突？
+
+如果两个人改的是**不同文件**，或者**同一文件的不同区域**，Git 可以自动合并：
+
+```text
+你改了 notes.md，同事改了 app.js
+    → Git 自动合并，没问题 ✅
+
+你改了 notes.md 第 1-5 行，同事改了 notes.md 第 20-25 行
+    → Git 自动合并，没问题 ✅
+```
+
+#### 什么时候会冲突？
+
+当两个人改了**同一文件的同一区域**，Git 不知道该听谁的：
+
+```text
+你改了 notes.md 第 3 行：把 "Hello" 改成 "Hi"
+同事也改了 notes.md 第 3 行：把 "Hello" 改成 "Hey"
+    → Git 无法自动决定，需要你手动选择 ❌
+```
+
+#### 冲突的本质
+
+```text
+Git 的合并逻辑：
+
+1. 找到两个分支的共同祖先（分叉点）
+2. 分别计算两个分支各自做了什么修改
+3. 如果修改不重叠 → 自动合并
+4. 如果修改重叠 → 标记为冲突，交给你决定
+
+冲突标记长这样：
+
+<<<<<<< HEAD
+你当前的版本（你所在分支的内容）
+=======
+对方分支的版本（要合并进来的内容）
+>>>>>>> feature/xxx
+```
+
+---
+
+### 【阶段五】练习 1：本地合并冲突——两分支改同一文件
+
+#### 场景设定
+
+你在 `main` 上修改了 `notes.md` 的第 3 行，同时你的功能分支也修改了同一行。
+现在要把功能分支合并到 main，就会冲突。
+
+#### 第 1 步：在 main 上修改 notes.md
+
+```bash
+git checkout main
+```
+
+编辑 `notes.md`，把第 3 行改成：
+
+```text
+- Second practice: Learned about git diff and staging area. [main edit]
+```
+
+提交：
+
+```bash
+git add notes.md
+git commit -m "docs: update notes.md on main branch"
+```
+
+#### 第 2 步：创建功能分支并修改同一行
+
+```bash
+git checkout -b feature/conflict-demo
+```
+
+⚠️ 注意：因为刚才在 main 上 commit 了，这个新分支是从 main 最新提交创建的。
+为了制造冲突，我们需要从 main 的上一个提交创建分支：
+
+```bash
+git checkout main
+git checkout -b feature/conflict-demo HEAD~1
+```
+
+`HEAD~1` 表示从当前提交往前退一个，这样功能分支就不是从最新 main 创建的。
+
+编辑 `notes.md` 的第 3 行（同一行）：
+
+```text
+- Second practice: Learned about git diff and staging area. [feature edit]
+```
+
+提交：
+
+```bash
+git add notes.md
+git commit -m "docs: update notes.md on feature branch"
+```
+
+#### 第 3 步：切回 main，尝试合并
+
+```bash
+git checkout main
+git merge feature/conflict-demo
+```
+
+预期输出：
+
+```text
+Auto-merging notes.md
+CONFLICT (content): Merge conflict in notes.md
+Automatic merge failed; fix conflicts and then commit the result.
+```
+
+Git 告诉你：自动合并失败，需要手动解决冲突。
+
+#### 第 4 步：查看冲突标记
+
+```bash
+cat notes.md
+```
+
+你会看到类似：
+
+```text
+<<<<<<< HEAD
+- Second practice: Learned about git diff and staging area. [main edit]
+=======
+- Second practice: Learned about git diff and staging area. [feature edit]
+>>>>>>> feature/conflict-demo
+```
+
+冲突标记解读：
+
+```text
+<<<<<<< HEAD          ← 冲突开始，下面是你当前分支（HEAD）的内容
+[你的版本]
+=======              ← 分隔线，上面是你的，下面是对方的
+[对方的版本]
+>>>>>>> feature/conflict-demo  ← 冲突结束，对方分支名
+```
+
+#### 第 5 步：解决冲突
+
+用编辑器打开 `notes.md`，把冲突标记删除，选择你想要的内容。
+
+方案 A：保留 main 的版本
+
+```text
+- Second practice: Learned about git diff and staging area. [main edit]
+```
+
+方案 B：保留 feature 的版本
+
+```text
+- Second practice: Learned about git diff and staging area. [feature edit]
+```
+
+方案 C：两个都要（手动整合）
+
+```text
+- Second practice: Learned about git diff and staging area. [main edit]
+- Second practice: Also explored feature branch changes. [feature edit]
+```
+
+选哪个都行，关键是**删掉所有冲突标记**（`<<<<<<<`、`=======`、`>>>>>>>`）。
+
+#### 第 6 步：标记冲突已解决，完成合并
+
+```bash
+git add notes.md
+git commit
+```
+
+`git commit` 不加 `-m` 会打开编辑器让你写合并提交消息。默认消息是 `Merge branch 'feature/conflict-demo'`，直接保存退出即可。
+
+如果你用 vim：按 `:wq` 回车。
+如果你不想打开编辑器：
+
+```bash
+git commit -m "Merge branch 'feature/conflict-demo'"
+```
+
+#### 第 7 步：确认合并结果
+
+```bash
+git log --oneline --graph --all -5
+```
+
+你会看到两个分支在某个点分叉，然后有一个合并提交把它们汇合：
+
+```text
+*   xxxxxxx (HEAD -> main) Merge branch 'feature/conflict-demo'
+|\
+| * yyyyyyy (feature/conflict-demo) docs: update notes.md on feature branch
+* | zzzzzzz docs: update notes.md on main branch
+|/
+* wwwwwww (之前的提交)
+```
+
+#### 如果想放弃合并怎么办？
+
+如果你觉得冲突太复杂，想回到合并前的状态：
+
+```bash
+git merge --abort
+```
+
+这会撤销合并操作，工作区恢复到 `git merge` 之前的状态。
+
+---
+
+### 【阶段五】练习 2：PR 里的冲突——GitHub 提示 Conflict，本地解决后推送
+
+#### 场景设定
+
+你已经推了一个功能分支到 GitHub 并创建了 PR。但在你开发期间，有人往 main 推了新代码，
+而且改了和你同一文件的同一区域。这时 PR 页面会显示 **Conflict** 而不是 **Able to merge**。
+
+#### 模拟方法
+
+1. 在 GitHub 网页上直接编辑 main 分支的某个文件（或者用 `gh` CLI）
+2. 然后本地功能分支也改了同一区域并推送
+3. PR 页面就会变红，显示冲突
+
+#### 解决步骤
+
+```bash
+# 1. 确保你在功能分支上
+git checkout feature/xxx
+
+# 2. 把 main 的最新内容合并进来
+git fetch origin
+git merge origin/main
+# 或者用 rebase：
+# git rebase origin/main
+
+# 3. 此时会出现冲突，按练习 1 的方法解决
+
+# 4. 解决后提交
+git add <冲突文件>
+git commit
+
+# 5. 推送到 GitHub（PR 自动更新）
+git push
+# 如果用了 rebase，可能需要 force push：
+# git push --force-with-lease
+```
+
+推送后，PR 页面会从红色 **Conflict** 变成绿色 **Able to merge**。
+
+#### `git push --force-with-lease` vs `git push --force`
+
+| 命令 | 安全性 | 说明 |
+|---|---|---|
+| `git push` | 最安全 | 正常推送，不允许覆盖远程提交 |
+| `git push --force-with-lease` | 较安全 | 允许覆盖，但如果远程有你不知道的新提交会拒绝 |
+| `git push --force` | ⚠️ 危险 | 无条件覆盖远程提交，可能丢失别人的工作 |
+
+**规则**：rebase 后用 `--force-with-lease`，永远不要用 `--force`。
+
+---
+
+### 【阶段五】练习 3：冲突标记详解——手动解决冲突的完整流程
+
+#### 冲突标记的三种形态
+
+**形态 1：普通冲突（两个版本）**
+
+```text
+<<<<<<< HEAD
+你的版本
+=======
+对方的版本
+>>>>>>> branch-name
+```
+
+这是最常见的，两个分支改了同一区域。
+
+**形态 2：一方修改，一方删除**
+
+```text
+<<<<<<< HEAD
+你的修改内容
+=======
+>>>>>>> branch-name
+```
+
+或者：
+
+```text
+<<<<<<< HEAD
+=======
+对方修改内容
+>>>>>>> branch-name
+```
+
+你需要在"保留修改"和"确认删除"之间选择。
+
+**形态 3：多方冲突（罕见，三方合并时）**
+
+```text
+<<<<<<< HEAD
+你的版本
+||||||| merged common ancestors
+原始版本
+=======
+对方版本
+>>>>>>> branch-name
+```
+
+需要同时看三个版本才能决定。用 `git merge -X diff3` 可以看到这种格式。
+
+#### 手动解决冲突的完整检查清单
+
+```text
+1. 搜索所有冲突标记
+   grep -n "<<<<<<< " notes.md
+   或者在编辑器里搜索 "<<<<<<<"
+
+2. 理解每个冲突
+   - 读 HEAD 版本（你的）
+   - 读对方版本
+   - 决定保留哪个，或如何整合
+
+3. 删除冲突标记
+   删掉 <<<<<<< HEAD、=======、>>>>>>> branch-name 这些行
+   只保留你选择的内容
+
+4. 确认文件语法正确
+   比如代码文件要能编译，markdown 文件格式没乱
+
+5. 标记已解决
+   git add <文件>
+
+6. 完成合并
+   git commit
+```
+
+#### 用 VS Code 解决冲突
+
+VS Code 在检测到冲突标记时，会在冲突上方显示四个按钮：
+
+```text
+Current Change (保留你的)    Incoming Change (保留对方的)
+Accept Combination (两者都保留)   Compare Changes (对比查看)
+```
+
+点击按钮可以快速选择，不需要手动删标记。
+
+---
+
+## 阶段六：Fork 工作流（参与别人的项目）
+
+> 学习目标：掌握参与开源项目或跨团队协作的标准流程——Fork → 修改 → PR。
+> 涵盖命令：`git remote add`、`git fetch upstream`、`git merge upstream/main`
+
+---
+
+### 【阶段六】概念：Fork vs Branch——什么时候用哪个？
+
+#### Branch 工作流（你之前学的）
+
+适用于：**你有仓库的写权限**（自己是仓库主人或团队成员）
+
+```text
+clone 仓库 → 建分支 → 开发 → push → PR → 合并
+```
+
+#### Fork 工作流（本节要学的）
+
+适用于：**你没有仓库的写权限**（参与别人的开源项目）
+
+```text
+Fork 仓库（在你的 GitHub 账号下创建副本）
+    ↓
+clone 你自己的 Fork
+    ↓
+建分支 → 开发 → push 到你的 Fork
+    ↓
+从你的 Fork 向原仓库发 PR
+    ↓
+原仓库作者审查 → 合并
+```
+
+#### 什么时候用哪个？
+
+| 场景 | 用 Branch | 用 Fork |
+|---|---|---|
+| 自己的仓库 | ✅ | |
+| 公司/团队内部项目（有写权限） | ✅ | |
+| 参与开源项目（无写权限） | | ✅ |
+| 给别人的仓库提 bug 修复 | | ✅ |
+| 大团队里隔离权限 | | ✅ |
+
+---
+
+### 【阶段六】练习 1：Fork 仓库 → 克隆 Fork → 建功能分支 → PR 回原仓库
+
+#### 第 1 步：在 GitHub 上 Fork
+
+1. 打开你要参与的项目仓库页面（比如 `https://github.com/someone/their-project`）
+2. 点击右上角的 **Fork** 按钮
+3. 选择你的账号作为 Fork 目标
+4. GitHub 会在你的账号下创建一个副本：`https://github.com/haichengmai20-hub/their-project`
+
+#### 第 2 步：克隆你的 Fork
+
+```bash
+git clone https://github.com/haichengmai20-hub/their-project.git
+cd their-project
+```
+
+注意：克隆的是**你的 Fork**，不是原仓库。这样你才有 push 权限。
+
+#### 第 3 步：添加上游仓库
+
+```bash
+git remote add upstream https://github.com/someone/their-project.git
+git remote -v
+```
+
+输出：
+
+```text
+origin    https://github.com/haichengmai20-hub/their-project.git (fetch)
+origin    https://github.com/haichengmai20-hub/their-project.git (push)
+upstream  https://github.com/someone/their-project.git (fetch)
+upstream  https://github.com/someone/their-project.git (push)
+```
+
+两个远程的区别：
+
+```text
+origin    → 你的 Fork，你有写权限，可以 push
+upstream  → 原仓库，你没有写权限，只能 fetch/pull
+```
+
+#### 第 4 步：建功能分支，开发
+
+```bash
+git checkout -b fix/typo-in-readme
+# 修改文件...
+git add -A
+git commit -m "fix: correct typo in README"
+```
+
+#### 第 5 步：推送到你的 Fork
+
+```bash
+git push -u origin fix/typo-in-readme
+```
+
+注意推的是 `origin`（你的 Fork），不是 `upstream`（原仓库，你没权限）。
+
+#### 第 6 步：从你的 Fork 向原仓库发 PR
+
+1. 打开**原仓库**的 GitHub 页面（`someone/their-project`）
+2. GitHub 会检测到你刚推了分支到 Fork，显示黄色横幅
+3. 点击 **Compare & pull request**
+4. 确认方向：**base: main** ← **compare: fix/typo-in-readme**，且是从你的 Fork 到原仓库
+5. 填写 PR 描述，提交
+
+#### 完整流程图
+
+```text
+原仓库 (someone/their-project)
+    │
+    │ Fork
+    v
+你的 Fork (haichengmai20-hub/their-project)
+    │
+    │ git clone
+    v
+本地仓库
+    │
+    │ git checkout -b fix/xxx
+    │ 开发、commit
+    │ git push -u origin fix/xxx
+    v
+你的 Fork 的 fix/xxx 分支
+    │
+    │ GitHub 上发 PR
+    v
+原仓库收到 PR → 审查 → 合并
+```
+
+---
+
+### 【阶段六】练习 2：同步 Fork——保持你的 Fork 和上游仓库一致
+
+#### 为什么要同步？
+
+原仓库不断有人在提交新代码。你的 Fork 是你 Fork 那一刻的快照，不会自动更新。
+如果 Fork 落后太多，你基于旧版本开发，PR 就容易冲突。
+
+#### 同步步骤
+
+```bash
+# 1. 拉取上游最新内容
+git fetch upstream
+
+# 2. 切到 main
+git checkout main
+
+# 3. 合并上游 main 到本地 main
+git merge upstream/main
+# 或者用 rebase：
+# git rebase upstream/main
+
+# 4. 推送到你的 Fork
+git push origin main
+```
+
+#### 建议养成习惯
+
+每次开始新功能开发前，先同步 Fork：
+
+```bash
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
+# 然后再创建新分支
+git checkout -b feature/new-thing
+```
+
+---
+
+### 【阶段六】练习 3：upstream 与 origin 的区别
+
+#### 三层远程关系
+
+```text
+upstream (原仓库)          ← 只读，你 fetch 来获取最新代码
+    │
+    │ git push origin
+    v
+origin (你的 Fork)         ← 可写，你 push 到这里
+    │
+    │ git clone
+    v
+本地仓库                    ← 你编辑、commit 的地方
+```
+
+#### 什么时候用哪个远程？
+
+| 操作 | 用哪个远程 | 原因 |
+|---|---|---|
+| `git push` | `origin` | 你只有 Fork 的写权限 |
+| `git fetch` / `git pull` | `upstream` | 获取原仓库的最新更新 |
+| 发 PR | GitHub 页面操作 | 从你的 Fork → 原仓库 |
+
+#### origin 和 upstream 不是固定名字
+
+它们只是约定俗成的名字。你也可以叫 `myfork` 和 `upstream`，效果一样。
+
+但推荐遵循惯例：
+- `origin` = 你 clone 的仓库（通常是你的 Fork）
+- `upstream` = 原仓库
+
+---
+
+## 阶段七：高级操作（按需学习）
+
+> 学习目标：掌握整理提交历史、挑选提交、版本标签等进阶操作。
+> 涵盖命令：`git rebase -i`、`git cherry-pick`、`git tag`、`git bisect`
+
+---
+
+### 【阶段七】练习 1：git rebase — 交互式整理提交历史
+
+#### 什么是 rebase？
+
+普通 rebase 你在阶段四已经接触过（`git pull --rebase`）。交互式 rebase 更强大：
+它可以让你**修改已提交的历史**——合并提交、改提交消息、删除提交、调换顺序。
+
+#### 典型使用场景
+
+你开发了 3 天，每天 commit 了好几次，历史很碎：
+
+```text
+a1b2c3d fix typo
+e4f5g6h wip: working on login
+i7j8k9l wip: still working on login
+m0n1o2p wip: more login stuff
+q3r4s5t feat: login feature complete
+```
+
+发 PR 前你想整理成一条干净的提交：
+
+```text
+q3r4s5t feat: implement login feature
+```
+
+#### 操作步骤
+
+```bash
+# 查看最近 5 个提交
+git log --oneline -5
+
+# 启动交互式 rebase，整理最近 5 个提交
+git rebase -i HEAD~5
+```
+
+Git 会打开编辑器，显示类似：
+
+```text
+pick a1b2c3d fix typo
+pick e4f5g6h wip: working on login
+pick i7j8k9l wip: still working on login
+pick m0n1o2p wip: more login stuff
+pick q3r4s5t feat: login feature complete
+```
+
+把 `pick` 改成你想要的操作：
+
+```text
+pick a1b2c3d fix typo
+squash e4f5g6h wip: working on login
+squash i7j8k9l wip: still working on login
+squash m0n1o2p wip: more login stuff
+squash q3r4s5t feat: login feature complete
+```
+
+`squash` = 把这个提交合并到前一个提交里。保存退出后，Git 会再让你编辑合并后的提交消息。
+
+#### 交互式 rebase 命令速查
+
+| 命令 | 作用 |
+|---|---|
+| `pick` | 保留这个提交（默认） |
+| `squash` | 合并到前一个提交，两个提交消息合并 |
+| `fixup` | 合并到前一个提交，丢弃这个提交的消息 |
+| `reword` | 保留提交，但修改提交消息 |
+| `edit` | 保留提交，但暂停让你修改文件内容 |
+| `drop` | 直接丢弃这个提交 |
+
+#### ⚠️ rebase 的黄金规则
+
+**永远不要 rebase 已经推送到远程的提交。**
+
+```text
+已经 push 的提交 → 别人可能已经基于它开发了
+    → 你 rebase 后哈希变了
+    → 别人的历史和你不一致
+    → 推送时冲突，大家一团糟
+
+只 rebase 你本地还没 push 的提交 ✅
+```
+
+---
+
+### 【阶段七】练习 2：git cherry-pick — 挑选特定提交
+
+#### 什么是 cherry-pick？
+
+从一个分支里**挑选某一个或几个提交**，应用到当前分支。不需要合并整个分支。
+
+```text
+feature/login 分支上有 5 个提交：
+  A → B → C → D → E
+
+你只需要 C 这个提交（修复了一个通用 bug）：
+  git cherry-pick C
+
+当前分支变成：
+  X → Y → C'
+```
+
+`C'` 和 `C` 内容一样，但哈希不同（因为父提交变了）。
+
+#### 使用场景
+
+- 只想合入某个 bug 修复，不要整个功能分支
+- 把 hotfix 从 main 反向应用到开发分支
+- 从别人的分支里挑一个有用的改动
+
+#### 操作步骤
+
+```bash
+# 1. 找到想要的提交哈希
+git log --oneline feature/login
+
+# 2. 切到目标分支
+git checkout main
+
+# 3. 挑选提交
+git cherry-pick abc1234
+
+# 挑选多个连续提交
+git cherry-pick abc1234..def5678
+```
+
+---
+
+### 【阶段七】练习 3：git tag — 版本标签与发布
+
+#### 什么是 tag？
+
+tag 是给某个提交起一个**有意义的名字**，通常用来标记版本号。
+
+```text
+git tag v1.0.0
+git tag -a v1.0.0 -m "Release version 1.0.0"
+```
+
+和分支不同，tag 指向固定的提交，不会移动。
+
+#### 轻量标签 vs 附注标签
+
+| 类型 | 命令 | 包含信息 |
+|---|---|---|
+| 轻量标签 | `git tag v1.0.0` | 只有提交哈希 |
+| 附注标签（推荐） | `git tag -a v1.0.0 -m "..."` | 哈希 + 标签者 + 日期 + 消息 |
+
+#### 常用操作
+
+```bash
+# 创建标签
+git tag -a v1.0.0 -m "First stable release"
+
+# 查看所有标签
+git tag -l
+
+# 查看标签详情
+git show v1.0.0
+
+# 推送标签到远程
+git push origin v1.0.0
+# 或推送所有标签：
+git push origin --tags
+
+# 删除本地标签
+git tag -d v1.0.0
+
+# 删除远程标签
+git push origin --delete v1.0.0
+```
+
+#### 语义化版本号（SemVer）
+
+```text
+v1.2.3
+│ │ │
+│ │ └── Patch：bug 修复，不影响 API
+│ └──── Minor：新功能，向后兼容
+└────── Major：重大变更，不向后兼容
+```
+
+---
+
+### 【阶段七】练习 4：git bisect — 二分查找引入 bug 的提交
+
+#### 什么是 bisect？
+
+当你的项目出了 bug，但你不知道是哪次提交引入的。`git bisect` 用二分法帮你快速定位。
+
+#### 使用场景
+
+```text
+你发现当前版本有 bug，但 100 个提交之前是好的。
+手动一个个试要 100 次。
+二分法只需要 7 次（log2(100) ≈ 7）。
+```
+
+#### 操作步骤
+
+```bash
+# 1. 启动 bisect
+git bisect start
+
+# 2. 标记当前提交为"有 bug"
+git bisect bad
+
+# 3. 标记某个旧提交为"没有 bug"
+git bisect good v1.0.0
+# 或者用哈希：
+# git bisect good abc1234
+
+# 4. Git 自动 checkout 到中间提交
+# 你测试后告诉 Git：
+git bisect good   # 这个提交没问题
+# 或
+git bisect bad    # 这个提交有问题
+
+# 5. Git 继续二分，重复第 4 步
+
+# 6. 最终 Git 输出：
+# "abc1234 is the first bad commit"
+
+# 7. 结束 bisect
+git bisect reset
+```
+
+#### 自动化 bisect
+
+如果你能用脚本判断是否有 bug，可以让 bisect 全自动：
+
+```bash
+git bisect start HEAD v1.0.0
+git bisect run python3 test_login.py
+# Git 会自动运行 test_login.py，根据返回值判断好坏
+# 返回 0 = good，非 0 = bad
+```
+
+---
+
+## 全课程学习路径回顾
+
+```text
+阶段一：基础提交流程
+  改文件 → add → commit → push
+  ✅ 已完成
+
+阶段二：GitHub 远程实战
+  PAT 认证、推送、理解三个层次
+  ✅ 已完成
+
+阶段三：日常高频操作
+  diff、restore、stash、reset
+  ✅ 已完成
+
+阶段四：GitHub 协作开发
+  功能分支、PR、代码审查
+  ✅ 练习 1-2 已完成，练习 3-4 待练习
+
+阶段五：合并冲突处理
+  本地冲突、PR 冲突、冲突标记详解
+  🔜 待练习
+
+阶段六：Fork 工作流
+  Fork → 克隆 → upstream → PR 回原仓库
+  🔜 待练习
+
+阶段七：高级操作
+  rebase -i、cherry-pick、tag、bisect
+  🔜 按需学习
+```
+
+**建议学习顺序**：先完成阶段四练习 3-4 → 然后阶段五（冲突） → 阶段六（Fork）→ 阶段七按需选学。
