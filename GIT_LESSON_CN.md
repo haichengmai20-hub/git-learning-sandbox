@@ -3284,6 +3284,87 @@ git checkout main
 
 你之前在 `feature/add-contributing-guide` 分支上工作。现在要回到 main 来同步。
 
+#### ⚠️ 踩坑实录：git reset --hard origin/main 误操作
+
+在练习第 2 步时，我执行了：
+
+```bash
+git fetch origin
+git reset --hard origin/main
+```
+
+结果本地 main 被强制回退到了远程的旧版本 `e75f338`，丢失了所有学习记录的更新！
+
+```text
+# 之前本地 main 的最新提交是 660d2c0（包含阶段四练习 3-7、阶段五-七的学习内容）
+# reset --hard origin/main 后，本地 main 变成了 e75f338（远程的旧版本）
+
+HEAD is now at e75f338 lesson: add command cheat sheet, restructure by stages, complete practice tasks
+```
+
+**原因分析**：
+
+```text
+本地 main   → 660d2c0 (最新，有学习记录更新)
+远程 origin/main → e75f338 (旧，没有学习记录更新)
+
+git reset --hard origin/main 的意思是：
+"不管本地有什么，强制把本地 main 对齐到 origin/main"
+
+结果：本地 660d2c0 的内容被 e75f338 覆盖了
+```
+
+**恢复方法：git reflog**
+
+```bash
+# 1. 查看 HEAD 的移动历史
+git reflog --date=local -20
+```
+
+输出：
+
+```text
+660d2c0 HEAD@{0}: reset: moving to 660d2c0          ← 我们恢复时执行的
+e75f338 HEAD@{1}: reset: moving to origin/main       ← 误操作！
+660d2c0 HEAD@{2}: checkout: moving from feature/add-contributing-guide to main
+660d2c0 HEAD@{3}: commit: lesson: add practice 3-7 content and PR screenshots  ← 之前的提交还在！
+...
+```
+
+关键信息：`660d2c0` 这个 commit 并没有真的消失！`reflog` 记录了它的哈希。
+
+```bash
+# 2. 跳回丢失的 commit
+git reset --hard 660d2c0
+```
+
+输出：
+
+```text
+HEAD is now at 660d2c0 lesson: add practice 3-7 content and PR screenshots
+```
+
+```bash
+# 3. 验证文件恢复
+wc -l GIT_LESSON_CN.md
+# 输出：4700+ GIT_LESSON_CN.md  ✅ 恢复了！
+
+# 4. 把远程也同步到最新
+git push origin main
+```
+
+**教训总结**：
+
+| 命令 | 风险 | 什么时候用 |
+|---|---|---|
+| `git reset --hard origin/main` | ⚠️ 高风险 | 会丢弃本地所有未推送的提交！只在确认本地不需要时用 |
+| `git pull --rebase origin main` | ✅ 安全 | 正常同步远程更新，会保留本地修改 |
+| `git reflog` | 救命神器 | 90 天内丢失的 commit 都能找回来 |
+
+**核心记忆**：`reset --hard` 不是删除，是移动指针。被移走的 commit 仍存在于 `.git/objects/` 里，`reflog` 就是找到它们的地图。
+
+---
+
 #### 第 2 步：从 GitHub 拉取合并结果
 
 ```bash
